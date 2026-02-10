@@ -133,14 +133,14 @@ if not exist postgres\bin\psql.exe (
 
 echo.
 echo [8/8] Sozdanie .env...
-echo DATABASE_URL=postgresql://postgres:postgres@localhost:5432/rag_db > .env
-echo LLM_API_KEY=sk-or-v1-your-api-key-here >> .env
-echo LLM_MODEL=anthropic/claude-haiku-4.5 >> .env
-echo EMBEDDING_API_KEY=sk-or-v1-your-api-key-here >> .env
-echo EMBEDDING_MODEL=qwen/qwen3-embedding-8b >> .env
-echo LLM_BASE_URL=https://openrouter.ai/api/v1 >> .env
-echo EMBEDDING_BASE_URL=https://api.openai.com/v1 >> .env
-echo AUDIO_MODEL=openai/whisper-1 >> .env
+echo database_url=postgresql://postgres:postgres@localhost:5432/rag_db > .env
+echo llm_api_key=sk-or-v1-your-api-key-here >> .env
+echo llm_model=anthropic/claude-haiku-4.5 >> .env
+echo embedding_api_key=sk-or-v1-your-api-key-here >> .env
+echo embedding_model=qwen/qwen3-embedding-8b >> .env
+echo llm_base_url=https://openrouter.ai/api/v1 >> .env
+echo embedding_base_url=https://api.openai.com/v1 >> .env
+echo audio_model=openai/whisper-1 >> .env
 echo [OK] .env sozdan
 
 echo.
