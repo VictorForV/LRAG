@@ -1,4 +1,4 @@
-"""Settings configuration for MongoDB RAG Agent."""
+"""Settings configuration for PostgreSQL RAG Agent."""
 
 from pydantic_settings import BaseSettings
 from pydantic import Field, ConfigDict
@@ -16,28 +16,9 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
-    # MongoDB Configuration
-    mongodb_uri: str = Field(..., description="MongoDB Atlas connection string")
-
-    mongodb_database: str = Field(default="rag_db", description="MongoDB database name")
-
-    mongodb_collection_documents: str = Field(
-        default="documents", description="Collection for source documents"
-    )
-
-    mongodb_collection_chunks: str = Field(
-        default="chunks", description="Collection for document chunks with embeddings"
-    )
-
-    mongodb_vector_index: str = Field(
-        default="vector_index",
-        description="Vector search index name (must be created in Atlas UI)",
-    )
-
-    mongodb_text_index: str = Field(
-        default="text_index",
-        description="Full-text search index name (must be created in Atlas UI)",
-    )
+    # PostgreSQL Configuration
+    database_url: str = Field(..., description="PostgreSQL connection string")
+    database_name: str = Field(default="rag_db", description="Database name")
 
     # LLM Configuration (OpenAI-compatible)
     llm_provider: str = Field(
@@ -75,6 +56,24 @@ class Settings(BaseSettings):
         description="Embedding vector dimension (1536 for text-embedding-3-small)",
     )
 
+    # Audio Transcription Configuration
+    audio_model: str = Field(
+        default="openai/gpt-audio-mini",
+        description="Model for audio transcription via OpenRouter (e.g., openai/gpt-audio-mini)",
+    )
+
+    # Graph/Relation Extraction Configuration
+    graph_model: Optional[str] = Field(
+        default=None,
+        description="Model for knowledge graph extraction (defaults to llm_model if not set)",
+    )
+
+    # OpenRouter Proxy Configuration (for audio API access)
+    openrouter_proxy_url: Optional[str] = Field(
+        default=None,
+        description="OpenRouter proxy URL for OpenAI API access (format: http://user:pass@host:port)",
+    )
+
     # Search Configuration
     default_match_count: int = Field(
         default=10, description="Default number of search results to return"
@@ -95,8 +94,8 @@ def load_settings() -> Settings:
         return Settings()
     except Exception as e:
         error_msg = f"Failed to load settings: {e}"
-        if "mongodb_uri" in str(e).lower():
-            error_msg += "\nMake sure to set MONGODB_URI in your .env file"
+        if "database_url" in str(e).lower():
+            error_msg += "\nMake sure to set DATABASE_URL in your .env file"
         if "llm_api_key" in str(e).lower():
             error_msg += "\nMake sure to set LLM_API_KEY in your .env file"
         if "embedding_api_key" in str(e).lower():

@@ -1,10 +1,12 @@
 """
 Document embedding generation for vector search.
+Supports OpenRouter embeddings via direct HTTP requests.
 """
 
 import logging
 from typing import List, Optional
 from datetime import datetime
+import httpx
 
 from dotenv import load_dotenv
 import openai
@@ -19,11 +21,16 @@ logger = logging.getLogger(__name__)
 
 # Initialize client with settings
 settings = load_settings()
-embedding_client = openai.AsyncOpenAI(
-    api_key=settings.embedding_api_key,
-    base_url=settings.embedding_base_url
+
+# OpenAI client for LLM (not embeddings)
+openai_client = openai.AsyncOpenAI(
+    api_key=settings.llm_api_key,
+    base_url=settings.llm_base_url
 )
+
 EMBEDDING_MODEL = settings.embedding_model
+EMBEDDING_API_KEY = settings.embedding_api_key
+EMBEDDING_BASE_URL = settings.embedding_base_url
 
 
 class EmbeddingGenerator:
@@ -43,18 +50,57 @@ class EmbeddingGenerator:
         """
         self.model = model
         self.batch_size = batch_size
+        self.api_key = EMBEDDING_API_KEY
+        self.base_url = EMBEDDING_BASE_URL
 
         # Model-specific configurations
         self.model_configs = {
             "text-embedding-3-small": {"dimensions": 1536, "max_tokens": 8191},
             "text-embedding-3-large": {"dimensions": 3072, "max_tokens": 8191},
-            "text-embedding-ada-002": {"dimensions": 1536, "max_tokens": 8191}
+            "text-embedding-ada-002": {"dimensions": 1536, "max_tokens": 8191},
+            "openai/text-embedding-3-small": {"dimensions": 1536, "max_tokens": 8191},
         }
 
         self.config = self.model_configs.get(
             model,
             {"dimensions": 1536, "max_tokens": 8191}
         )
+
+    async def _call_openrouter_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Call OpenRouter embeddings API directly via HTTP.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of embedding vectors
+        """
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{self.base_url}/embeddings",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.model,
+                    "input": texts,
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # OpenRouter format: { "data": [ { "embedding": [...] }, ... ] }
+            if "data" not in data:
+                raise ValueError(f"Unexpected response format: {data}")
+
+            embeddings = [item["embedding"] for item in data["data"]]
+
+            if not embeddings:
+                raise ValueError(f"No embeddings in response: {data}")
+
+            return embeddings
 
     async def generate_embedding(self, text: str) -> List[float]:
         """
@@ -66,16 +112,12 @@ class EmbeddingGenerator:
         Returns:
             Embedding vector
         """
-        # Truncate text if too long (rough estimation: 4 chars per token)
+        # Truncate text if too long
         if len(text) > self.config["max_tokens"] * 4:
             text = text[:self.config["max_tokens"] * 4]
 
-        response = await embedding_client.embeddings.create(
-            model=self.model,
-            input=text
-        )
-
-        return response.data[0].embedding
+        embeddings = await self._call_openrouter_embeddings([text])
+        return embeddings[0]
 
     async def generate_embeddings_batch(
         self,
@@ -97,12 +139,7 @@ class EmbeddingGenerator:
                 text = text[:self.config["max_tokens"] * 4]
             processed_texts.append(text)
 
-        response = await embedding_client.embeddings.create(
-            model=self.model,
-            input=processed_texts
-        )
-
-        return [data.embedding for data in response.data]
+        return await self._call_openrouter_embeddings(processed_texts)
 
     async def embed_chunks(
         self,
@@ -147,47 +184,30 @@ class EmbeddingGenerator:
                         "embedding_model": self.model,
                         "embedding_generated_at": datetime.now().isoformat()
                     },
-                    token_count=chunk.token_count
+                    token_count=chunk.token_count,
+                    embedding=embedding
                 )
-                embedded_chunk.embedding = embedding
                 embedded_chunks.append(embedded_chunk)
 
-            # Progress update
-            current_batch = (i // self.batch_size) + 1
             if progress_callback:
-                progress_callback(current_batch, total_batches)
+                progress_callback(i + len(batch_chunks), len(chunks))
 
-            logger.info(f"Processed batch {current_batch}/{total_batches}")
-
-        logger.info(f"Generated embeddings for {len(embedded_chunks)} chunks")
+        logger.info(f"Generated {len(embedded_chunks)} embeddings")
         return embedded_chunks
 
-    async def embed_query(self, query: str) -> List[float]:
-        """
-        Generate embedding for a search query.
 
-        Args:
-            query: Search query
-
-        Returns:
-            Query embedding
-        """
-        return await self.generate_embedding(query)
-
-    def get_embedding_dimension(self) -> int:
-        """Get the dimension of embeddings for this model."""
-        return self.config["dimensions"]
+# Singleton instance
+_embedder: Optional[EmbeddingGenerator] = None
 
 
-def create_embedder(model: str = EMBEDDING_MODEL, **kwargs) -> EmbeddingGenerator:
-    """
-    Create embedding generator.
+def get_embedder() -> EmbeddingGenerator:
+    """Get or create singleton embedder instance."""
+    global _embedder
+    if _embedder is None:
+        _embedder = EmbeddingGenerator()
+    return _embedder
 
-    Args:
-        model: Embedding model to use
-        **kwargs: Additional arguments for EmbeddingGenerator
 
-    Returns:
-        EmbeddingGenerator instance
-    """
-    return EmbeddingGenerator(model=model, **kwargs)
+def create_embedder(**kwargs) -> EmbeddingGenerator:
+    """Create a new embedder instance with custom settings."""
+    return EmbeddingGenerator(**kwargs)

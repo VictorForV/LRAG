@@ -1,23 +1,21 @@
 """
-Main ingestion script for processing documents into MongoDB vector database.
+Main ingestion script for processing documents into PostgreSQL with pgvector.
 
-This adapts the examples/ingestion/ingest.py pipeline to use MongoDB instead of PostgreSQL,
-changing only the database layer while preserving all document processing logic.
+This pipeline ingests documents into PostgreSQL vector database.
 """
 
 import os
 import asyncio
 import logging
 import glob
+import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import argparse
 from dataclasses import dataclass
+import asyncpg
 
-from pymongo import AsyncMongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-from bson import ObjectId
 from dotenv import load_dotenv
 
 from src.ingestion.chunker import ChunkingConfig, create_chunker, DocumentChunk
@@ -37,6 +35,8 @@ class IngestionConfig:
     chunk_overlap: int = 200
     max_chunk_size: int = 2000
     max_tokens: int = 512
+    project_id: Optional[str] = None
+    incremental: bool = True  # Skip documents that already exist
 
 
 @dataclass
@@ -50,32 +50,26 @@ class IngestionResult:
 
 
 class DocumentIngestionPipeline:
-    """Pipeline for ingesting documents into MongoDB vector database."""
+    """Pipeline for ingesting documents into PostgreSQL with pgvector."""
 
     def __init__(
         self,
         config: IngestionConfig,
         documents_folder: str = "documents",
-        clean_before_ingest: bool = True
+        clean_before_ingest: bool = True,
+        project_id: Optional[str] = None
     ):
-        """
-        Initialize ingestion pipeline.
-
-        Args:
-            config: Ingestion configuration
-            documents_folder: Folder containing documents
-            clean_before_ingest: Whether to clean existing data before ingestion
-        """
+        """Initialize ingestion pipeline."""
         self.config = config
         self.documents_folder = documents_folder
         self.clean_before_ingest = clean_before_ingest
+        self.project_id = project_id or config.project_id
 
         # Load settings
         self.settings = load_settings()
 
-        # Initialize MongoDB client and database references
-        self.mongo_client: Optional[AsyncMongoClient] = None
-        self.db: Optional[Any] = None
+        # Initialize PostgreSQL pool
+        self.db_pool: Optional[asyncpg.Pool] = None
 
         # Initialize components
         self.chunker_config = ChunkingConfig(
@@ -91,68 +85,45 @@ class DocumentIngestionPipeline:
         self._initialized = False
 
     async def initialize(self) -> None:
-        """
-        Initialize MongoDB connections.
-
-        Raises:
-            ConnectionFailure: If MongoDB connection fails
-            ServerSelectionTimeoutError: If MongoDB server selection times out
-        """
+        """Initialize PostgreSQL connection pool."""
         if self._initialized:
             return
 
         logger.info("Initializing ingestion pipeline...")
 
-        try:
-            # Initialize MongoDB client
-            self.mongo_client = AsyncMongoClient(
-                self.settings.mongodb_uri,
-                serverSelectionTimeoutMS=5000
-            )
-            self.db = self.mongo_client[self.settings.mongodb_database]
+        self.db_pool = await asyncpg.create_pool(
+            self.settings.database_url,
+            min_size=2,
+            max_size=10
+        )
 
-            # Verify connection
-            await self.mongo_client.admin.command("ping")
-            logger.info(
-                f"Connected to MongoDB database: {self.settings.mongodb_database}"
-            )
-
-        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            logger.exception("mongodb_connection_failed", error=str(e))
-            raise
-
+        logger.info(f"Connected to PostgreSQL: {self.settings.database_name}")
         self._initialized = True
         logger.info("Ingestion pipeline initialized")
 
     async def close(self) -> None:
-        """Close MongoDB connections."""
-        if self._initialized and self.mongo_client:
-            await self.mongo_client.close()
-            self.mongo_client = None
-            self.db = None
+        """Close PostgreSQL connection pool."""
+        if self._initialized and self.db_pool:
+            await self.db_pool.close()
+            self.db_pool = None
             self._initialized = False
-            logger.info("MongoDB connection closed")
+            logger.info("PostgreSQL connection closed")
 
     def _find_document_files(self) -> List[str]:
-        """
-        Find all supported document files in the documents folder.
-
-        Returns:
-            List of file paths
-        """
+        """Find all supported document files in the documents folder."""
         if not os.path.exists(self.documents_folder):
             logger.error(f"Documents folder not found: {self.documents_folder}")
             return []
 
-        # Supported file patterns - Docling + text formats + audio
         patterns = [
-            "*.md", "*.markdown", "*.txt",  # Text formats
-            "*.pdf",  # PDF
-            "*.docx", "*.doc",  # Word
-            "*.pptx", "*.ppt",  # PowerPoint
-            "*.xlsx", "*.xls",  # Excel
-            "*.html", "*.htm",  # HTML
-            "*.mp3", "*.wav", "*.m4a", "*.flac",  # Audio formats
+            "*.md", "*.markdown", "*.txt",
+            "*.pdf",
+            "*.docx", "*.doc",
+            "*.pptx", "*.ppt",
+            "*.xlsx", "*.xls",
+            "*.html", "*.htm",
+            "*.mp3", "*.wav", "*.m4a", "*.flac",
+            "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif", "*.gif",
         ]
         files = []
 
@@ -167,181 +138,248 @@ class DocumentIngestionPipeline:
         return sorted(files)
 
     def _read_document(self, file_path: str) -> tuple[str, Optional[Any]]:
-        """
-        Read document content from file - supports multiple formats via Docling.
-
-        Args:
-            file_path: Path to the document file
-
-        Returns:
-            Tuple of (markdown_content, docling_document).
-            docling_document is None only for text files.
-        """
+        """Read document content from file - supports multiple formats via Docling."""
         file_ext = os.path.splitext(file_path)[1].lower()
 
-        # Audio formats - transcribe with Whisper ASR
+        # Handle image files with OCR
+        image_formats = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.gif']
+        if file_ext in image_formats:
+            return self._ocr_image(file_path)
+
         audio_formats = ['.mp3', '.wav', '.m4a', '.flac']
         if file_ext in audio_formats:
-            # Returns tuple: (markdown_content, docling_document)
             return self._transcribe_audio(file_path)
 
-        # Docling-supported formats (convert to markdown)
         docling_formats = [
             '.pdf', '.docx', '.doc', '.pptx', '.ppt',
             '.xlsx', '.xls', '.html', '.htm',
-            '.md', '.markdown'  # Markdown files for HybridChunker
+            '.md', '.markdown'
         ]
 
         if file_ext in docling_formats:
+            # Special handling for PDF files - try Docling first, fallback to PDF→image OCR
+            if file_ext == '.pdf':
+                file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+                # For large PDFs (>5MB), skip Docling and go straight to PDF→image OCR with Tesseract
+                # Docling with RapidOCR has poor Russian support, and Tesseract through Docling is very slow
+                if file_size_mb > 5:
+                    logger.info(f"Large PDF ({file_size_mb:.1f}MB), using PDF→image OCR with Tesseract directly")
+                    return self._pdf_scan_to_images(file_path)
+
+                try:
+                    from docling.document_converter import DocumentConverter
+
+                    logger.info(f"Converting PDF using Docling: {os.path.basename(file_path)}")
+
+                    converter = DocumentConverter()
+                    result = converter.convert(file_path)
+                    markdown_content = result.document.export_to_markdown()
+
+                    # Check if we got meaningful text (more than 500 chars and not just image placeholders)
+                    text_content = markdown_content.strip()
+                    # Filter out image placeholders and empty content
+                    meaningful_text = text_content.replace('<!-- image -->', '').replace('_', '').strip()
+
+                    if len(meaningful_text) > 500:
+                        logger.info(f"Successfully converted PDF with Docling: {len(meaningful_text)} chars")
+                        return (markdown_content, result.document)
+                    else:
+                        logger.warning(f"Docling extracted little meaningful text ({len(meaningful_text)} chars), trying PDF→image OCR")
+                        raise ValueError("Insufficient meaningful text extracted by Docling")
+
+                except Exception as e:
+                    logger.warning(f"Docling failed for PDF: {e}, falling back to PDF→image OCR")
+                    # Fallback to PDF→image conversion with Tesseract
+                    return self._pdf_scan_to_images(file_path)
+
+            # Other formats (DOCX, etc.) - use Docling
             try:
                 from docling.document_converter import DocumentConverter
 
-                logger.info(
-                    f"Converting {file_ext} file using Docling: "
-                    f"{os.path.basename(file_path)}"
-                )
+                logger.info(f"Converting {file_ext} file using Docling: {os.path.basename(file_path)}")
 
                 converter = DocumentConverter()
                 result = converter.convert(file_path)
-
-                # Export to markdown for consistent processing
                 markdown_content = result.document.export_to_markdown()
-                logger.info(
-                    f"Successfully converted {os.path.basename(file_path)} "
-                    f"to markdown"
-                )
 
-                # Return both markdown and DoclingDocument for HybridChunker
+                logger.info(f"Successfully converted {os.path.basename(file_path)} to markdown")
                 return (markdown_content, result.document)
 
             except Exception as e:
                 logger.error(f"Failed to convert {file_path} with Docling: {e}")
-                # Fall back to raw text if Docling fails
-                logger.warning(f"Falling back to raw text extraction for {file_path}")
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         return (f.read(), None)
                 except Exception:
-                    return (
-                        f"[Error: Could not read file {os.path.basename(file_path)}]",
-                        None
-                    )
+                    return (f"[Error: Could not read file {os.path.basename(file_path)}]", None)
 
-        # Text-based formats (read directly)
         else:
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return (f.read(), None)
             except UnicodeDecodeError:
-                # Try with different encoding
                 with open(file_path, 'r', encoding='latin-1') as f:
                     return (f.read(), None)
 
     def _transcribe_audio(self, file_path: str) -> tuple[str, Optional[Any]]:
-        """
-        Transcribe audio file using Whisper ASR via Docling.
-
-        Args:
-            file_path: Path to the audio file
-
-        Returns:
-            Tuple of (markdown_content, docling_document)
-        """
+        """Transcribe audio file using OpenRouter API (with Whisper fallback)."""
         try:
             from pathlib import Path
-            from docling.document_converter import (
-                DocumentConverter,
-                AudioFormatOption
-            )
-            from docling.datamodel.pipeline_options import AsrPipelineOptions
-            from docling.datamodel import asr_model_specs
-            from docling.datamodel.base_models import InputFormat
-            from docling.pipeline.asr_pipeline import AsrPipeline
+            import asyncio
 
-            # Use Path object - Docling expects this
             audio_path = Path(file_path).resolve()
-            logger.info(
-                f"Transcribing audio file using Whisper Turbo: {audio_path.name}"
-            )
+            logger.info(f"Transcribing audio file using OpenRouter: {audio_path.name}")
 
-            # Verify file exists
             if not audio_path.exists():
                 raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-            # Configure ASR pipeline with Whisper Turbo model
-            pipeline_options = AsrPipelineOptions()
-            pipeline_options.asr_options = asr_model_specs.WHISPER_TURBO
+            # Try OpenRouter transcription first
+            try:
+                from src.ingestion.audio_transcriber import transcribe_audio_auto
+                from src.settings import Settings
 
-            converter = DocumentConverter(
-                format_options={
-                    InputFormat.AUDIO: AudioFormatOption(
-                        pipeline_cls=AsrPipeline,
-                        pipeline_options=pipeline_options,
-                    )
-                }
-            )
+                settings = Settings()
+                text = asyncio.run(transcribe_audio_auto(str(audio_path), settings))
 
-            # Transcribe the audio file
-            result = converter.convert(audio_path)
+                # Create a simple markdown document from transcription
+                markdown_content = f"# Audio Transcription\n\n**Source:** {audio_path.name}\n\n{text}\n"
+                logger.info(f"Successfully transcribed {os.path.basename(file_path)} via OpenRouter")
 
-            # Export to markdown with timestamps
-            markdown_content = result.document.export_to_markdown()
-            logger.info(f"Successfully transcribed {os.path.basename(file_path)}")
+                return (markdown_content, None)
 
-            # Return both markdown and DoclingDocument for HybridChunker
-            return (markdown_content, result.document)
+            except Exception as openrouter_error:
+                logger.warning(f"OpenRouter transcription failed: {openrouter_error}, falling back to Whisper")
+
+                # Fallback to Docling Whisper
+                from docling.document_converter import DocumentConverter, AudioFormatOption
+                from docling.datamodel.pipeline_options import AsrPipelineOptions
+                from docling.datamodel.base_models import InputFormat
+                from docling.pipeline.asr_pipeline import AsrPipeline
+
+                logger.info(f"Transcribing with Whisper fallback: {audio_path.name}")
+
+                # Create whisper options with Russian language forced
+                from docling.datamodel.pipeline_options_asr_model import InlineAsrNativeWhisperOptions
+                whisper_opts = InlineAsrNativeWhisperOptions(
+                    repo_id='turbo',
+                    language='ru',  # Force Russian language
+                    verbose=True,
+                    timestamps=True,
+                    temperature=0.0,
+                )
+
+                pipeline_options = AsrPipelineOptions()
+                pipeline_options.asr_options = whisper_opts
+
+                converter = DocumentConverter(
+                    format_options={
+                        InputFormat.AUDIO: AudioFormatOption(
+                            pipeline_cls=AsrPipeline,
+                            pipeline_options=pipeline_options,
+                        )
+                    }
+                )
+
+                result = converter.convert(audio_path)
+                markdown_content = result.document.export_to_markdown()
+                logger.info(f"Successfully transcribed {os.path.basename(file_path)} via Whisper fallback")
+
+                return (markdown_content, result.document)
 
         except Exception as e:
-            logger.error(f"Failed to transcribe {file_path} with Whisper ASR: {e}")
-            return (
-                f"[Error: Could not transcribe audio file "
-                f"{os.path.basename(file_path)}]",
-                None
-            )
+            logger.error(f"Failed to transcribe {file_path}: {e}")
+            return (f"[Error: Could not transcribe audio file {os.path.basename(file_path)}]", None)
+
+    def _pdf_scan_to_images(self, file_path: str) -> tuple[str, Optional[Any]]:
+        """Convert PDF to images and OCR with Tesseract for better Russian text recognition."""
+        try:
+            import pytesseract
+            from PIL import Image
+            from pdf2image import convert_from_path
+            import tempfile
+
+            logger.info(f"Converting PDF to images for OCR: {os.path.basename(file_path)}")
+
+            # Convert PDF to images (300 DPI for good quality)
+            images = convert_from_path(file_path, dpi=300)
+
+            logger.info(f"Converted {len(images)} pages from PDF")
+
+            # OCR each page
+            all_text = []
+            for i, image in enumerate(images, 1):
+                logger.info(f"OCR page {i}/{len(images)}")
+                text = pytesseract.image_to_string(image, lang='rus+eng')
+                if text.strip():
+                    all_text.append(f"## Page {i}\n\n{text}")
+
+            if not all_text:
+                logger.warning(f"No text found in PDF {os.path.basename(file_path)}")
+                return (f"[No text detected in PDF {os.path.basename(file_path)}]", None)
+
+            combined_text = "\n\n".join(all_text)
+            logger.info(f"Successfully extracted {len(combined_text)} characters from PDF")
+
+            # Return as markdown
+            markdown_content = f"# {os.path.splitext(os.path.basename(file_path))[0]}\n\n{combined_text}"
+            return (markdown_content, None)
+
+        except ImportError as e:
+            logger.error(f"PDF to image dependencies not installed: {e}")
+            return (f"[Error: pdf2image not installed. Run: pip install pdf2image]", None)
+        except Exception as e:
+            logger.error(f"Failed to convert PDF to images: {e}")
+            return (f"[Error: Could not process PDF {os.path.basename(file_path)}]", None)
+
+    def _ocr_image(self, file_path: str) -> tuple[str, Optional[Any]]:
+        """OCR image file using Tesseract."""
+        try:
+            import pytesseract
+            from PIL import Image
+
+            logger.info(f"Performing OCR on image file: {os.path.basename(file_path)}")
+
+            # Open image and perform OCR with Russian and English languages
+            image = Image.open(file_path)
+
+            # Extract text with OCR (Russian + English)
+            text = pytesseract.image_to_string(image, lang='rus+eng')
+
+            if not text.strip():
+                logger.warning(f"No text found in image {os.path.basename(file_path)}")
+                return (f"[No text detected in image {os.path.basename(file_path)}]", None)
+
+            logger.info(f"Successfully extracted {len(text)} characters from {os.path.basename(file_path)}")
+
+            # Return as markdown
+            markdown_content = f"# {os.path.splitext(os.path.basename(file_path))[0]}\n\n{text}"
+            return (markdown_content, None)
+
+        except ImportError as e:
+            logger.error(f"OCR dependencies not installed: {e}")
+            return (f"[Error: OCR dependencies missing. Install: pip install pytesseract Pillow]", None)
+        except Exception as e:
+            logger.error(f"Failed to OCR {file_path}: {e}")
+            return (f"[Error: Could not read image file {os.path.basename(file_path)}]", None)
 
     def _extract_title(self, content: str, file_path: str) -> str:
-        """
-        Extract title from document content or filename.
-
-        Args:
-            content: Document content
-            file_path: Path to the document file
-
-        Returns:
-            Document title
-        """
-        # Try to find markdown title
+        """Extract title from document content or filename."""
         lines = content.split('\n')
-        for line in lines[:10]:  # Check first 10 lines
+        for line in lines[:10]:
             line = line.strip()
             if line.startswith('# '):
                 return line[2:].strip()
-
-        # Fallback to filename
         return os.path.splitext(os.path.basename(file_path))[0]
 
-    def _extract_document_metadata(
-        self,
-        content: str,
-        file_path: str
-    ) -> Dict[str, Any]:
-        """
-        Extract metadata from document content.
-
-        Args:
-            content: Document content
-            file_path: Path to the document file
-
-        Returns:
-            Document metadata dictionary
-        """
+    def _extract_document_metadata(self, content: str, file_path: str) -> Dict[str, Any]:
+        """Extract metadata from document content."""
         metadata = {
             "file_path": file_path,
             "file_size": len(content),
             "ingestion_date": datetime.now().isoformat()
         }
 
-        # Try to extract YAML frontmatter
         if content.startswith('---'):
             try:
                 import yaml
@@ -352,134 +390,195 @@ class DocumentIngestionPipeline:
                     if isinstance(yaml_metadata, dict):
                         metadata.update(yaml_metadata)
             except ImportError:
-                logger.warning(
-                    "PyYAML not installed, skipping frontmatter extraction"
-                )
+                logger.warning("PyYAML not installed, skipping frontmatter extraction")
             except Exception as e:
                 logger.warning(f"Failed to parse frontmatter: {e}")
 
-        # Extract some basic metadata from content
         lines = content.split('\n')
         metadata['line_count'] = len(lines)
         metadata['word_count'] = len(content.split())
 
         return metadata
 
-    async def _save_to_mongodb(
+    def _calculate_file_hash(self, file_path: str) -> str:
+        """
+        Calculate SHA256 hash of a file for incremental ingestion.
+
+        Args:
+            file_path: Path to file
+
+        Returns:
+            Hexadecimal hash string
+        """
+        import hashlib
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(chunk)
+        return sha256_hash.hexdigest()
+
+    async def _save_to_postgresql(
         self,
         title: str,
         source: str,
         content: str,
         chunks: List[DocumentChunk],
-        metadata: Dict[str, Any]
+        metadata: Dict[str, Any],
+        file_hash: Optional[str] = None
     ) -> str:
-        """
-        Save document and chunks to MongoDB.
+        """Save document and chunks to PostgreSQL."""
+        async with self.db_pool.acquire() as conn:
+            # Insert document with project support
+            document_id = await conn.fetchval(
+                """INSERT INTO documents (title, source, uri, metadata, content, project_id, file_hash)
+                   VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+                   RETURNING id""",
+                title, source, source, json.dumps(metadata), content,
+                self.project_id, file_hash
+            )
 
-        Args:
-            title: Document title
-            source: Document source path
-            content: Document content
-            chunks: List of document chunks with embeddings
-            metadata: Document metadata
+            logger.info(f"Inserted document with ID: {document_id}")
 
-        Returns:
-            Document ID (ObjectId as string)
+            # Insert chunks with embeddings
+            for chunk in chunks:
+                embedding_str = f"[{','.join(map(str, chunk.embedding))}]"
+                await conn.execute(
+                    """INSERT INTO chunks (document_id, content, embedding, chunk_index, token_count, metadata)
+                       VALUES ($1, $2, $3::vector, $4, $5, $6::jsonb)""",
+                    document_id, chunk.content, embedding_str, chunk.index,
+                    chunk.token_count, json.dumps(chunk.metadata)
+                )
 
-        Raises:
-            Exception: If MongoDB operations fail
-        """
-        # Get collection references
-        documents_collection = self.db[
-            self.settings.mongodb_collection_documents
-        ]
-        chunks_collection = self.db[self.settings.mongodb_collection_chunks]
+            logger.info(f"Inserted {len(chunks)} chunks")
 
-        # Insert document
-        document_dict = {
-            "title": title,
-            "source": source,
-            "content": content,
-            "metadata": metadata,
-            "created_at": datetime.now()
-        }
-
-        document_result = await documents_collection.insert_one(document_dict)
-        document_id = document_result.inserted_id
-
-        logger.info(f"Inserted document with ID: {document_id}")
-
-        # Insert chunks with embeddings as Python lists
-        chunk_dicts = []
-        for chunk in chunks:
-            chunk_dict = {
-                "document_id": document_id,
-                "content": chunk.content,
-                "embedding": chunk.embedding,  # Python list, NOT string!
-                "chunk_index": chunk.index,
-                "metadata": chunk.metadata,
-                "token_count": chunk.token_count,
-                "created_at": datetime.now()
-            }
-            chunk_dicts.append(chunk_dict)
-
-        # Batch insert with ordered=False for partial success
-        if chunk_dicts:
-            await chunks_collection.insert_many(chunk_dicts, ordered=False)
-            logger.info(f"Inserted {len(chunk_dicts)} chunks")
+            # Extract and save entities using NER
+            await self._save_entities(conn, document_id, content, chunks)
 
         return str(document_id)
 
+    async def _save_entities(
+        self,
+        conn,
+        document_id: str,
+        content: str,
+        chunks: List[DocumentChunk]
+    ) -> None:
+        """Extract and save entities from document content."""
+        try:
+            from src.ingestion.entity_extractor import get_entity_extractor
+
+            extractor = get_entity_extractor()
+
+            # Extract entities from full document content
+            doc_entities = extractor.extract_entities(content)
+
+            # Extract entities from each chunk and save
+            for chunk in chunks:
+                chunk_entities = extractor.extract_entities(chunk.content)
+
+                # Save entities for this chunk (chunk_id can be NULL for document-level entities)
+                for entity in chunk_entities:
+                    entity_dict = entity.to_dict()
+                    await conn.execute(
+                        """INSERT INTO entities (document_id, entity_type, entity_name, entity_text, metadata)
+                           VALUES ($1, $2, $3, $4, $5::jsonb)""",
+                        document_id,
+                        entity_dict['entity_type'],
+                        entity_dict['entity_name'][:1000],  # Limit name length
+                        entity_dict['entity_text'][:5000],  # Limit text length
+                        json.dumps(entity_dict.get('metadata', {}))
+                    )
+
+            logger.info(f"Extracted and saved {sum(len(extractor.extract_entities(c.content)) for c in chunks)} entities from chunks")
+
+        except ImportError as e:
+            logger.warning(f"Entity extraction not available: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to extract entities: {e}")
+
+    async def _infer_relations(self, conn, document_id: str, entities: List) -> None:
+        """Infer document relations based on extracted entities."""
+        # This is a placeholder for future relation inference
+        # For now, relations will be manually created or inferred based on document references
+        pass
+
     async def _clean_databases(self) -> None:
-        """Clean existing data from MongoDB collections."""
-        logger.warning("Cleaning existing data from MongoDB...")
+        """Clean existing data from PostgreSQL tables."""
+        logger.warning("Cleaning existing data from PostgreSQL...")
 
-        # Get collection references
-        documents_collection = self.db[
-            self.settings.mongodb_collection_documents
-        ]
-        chunks_collection = self.db[self.settings.mongodb_collection_chunks]
+        async with self.db_pool.acquire() as conn:
+            # Get counts before deletion
+            entities_count = await conn.fetchval("SELECT COUNT(*) FROM entities")
+            relations_count = await conn.fetchval("SELECT COUNT(*) FROM relations")
+            chunks_count = await conn.fetchval("SELECT COUNT(*) FROM chunks")
+            docs_count = await conn.fetchval("SELECT COUNT(*) FROM documents")
 
-        # Delete all chunks first (to respect FK relationships)
-        chunks_result = await chunks_collection.delete_many({})
-        logger.info(f"Deleted {chunks_result.deleted_count} chunks")
+            # Delete relations first (foreign key to documents)
+            await conn.execute("DELETE FROM relations")
+            logger.info(f"Deleted {relations_count or 0} relations")
 
-        # Delete all documents
-        docs_result = await documents_collection.delete_many({})
-        logger.info(f"Deleted {docs_result.deleted_count} documents")
+            # Delete entities (foreign key to chunks/documents)
+            await conn.execute("DELETE FROM entities")
+            logger.info(f"Deleted {entities_count or 0} entities")
+
+            # Delete chunks first (foreign key constraint)
+            await conn.execute("DELETE FROM chunks")
+            logger.info(f"Deleted {chunks_count or 0} chunks")
+
+            # Delete documents
+            await conn.execute("DELETE FROM documents")
+            logger.info(f"Deleted {docs_count or 0} documents")
 
     async def _ingest_single_document(self, file_path: str) -> IngestionResult:
-        """
-        Ingest a single document.
-
-        Args:
-            file_path: Path to the document file
-
-        Returns:
-            Ingestion result
-        """
+        """Ingest a single document."""
         start_time = datetime.now()
 
-        # Read document (returns tuple: content, docling_doc)
+        # Calculate file hash for incremental ingestion
+        file_hash = None
+        file_name = os.path.basename(file_path)
+        if self.config.incremental:
+            file_hash = self._calculate_file_hash(file_path)
+
+            # Check if document already exists
+            async with self.db_pool.acquire() as conn:
+                existing_row = await conn.fetchrow(
+                    """SELECT id, title, ingestion_count
+                       FROM documents
+                       WHERE source = $1 AND file_hash = $2
+                       AND (project_id = $3 OR ($3 IS NULL AND project_id IS NULL))
+                       LIMIT 1""",
+                    file_name, file_hash, self.project_id
+                )
+
+                if existing_row:
+                    logger.info(f"Skipping duplicate document: {file_name} (already exists)")
+                    # Update ingestion metadata
+                    await conn.execute(
+                        "UPDATE documents SET last_ingested = NOW(), ingestion_count = ingestion_count + 1 WHERE id = $1",
+                        existing_row["id"]
+                    )
+                    return IngestionResult(
+                        document_id=str(existing_row["id"]),
+                        title=existing_row["title"],
+                        chunks_created=0,
+                        processing_time_ms=(datetime.now() - start_time).total_seconds() * 1000,
+                        errors=[]
+                    )
+
         document_content, docling_doc = self._read_document(file_path)
         document_title = self._extract_title(document_content, file_path)
         document_source = os.path.relpath(file_path, self.documents_folder)
 
-        # Extract metadata from content
-        document_metadata = self._extract_document_metadata(
-            document_content,
-            file_path
-        )
+        document_metadata = self._extract_document_metadata(document_content, file_path)
 
         logger.info(f"Processing document: {document_title}")
 
-        # Chunk the document - pass DoclingDocument for HybridChunker
         chunks = await self.chunker.chunk_document(
             content=document_content,
             title=document_title,
             source=document_source,
             metadata=document_metadata,
-            docling_doc=docling_doc  # Pass DoclingDocument for HybridChunker
+            docling_doc=docling_doc
         )
 
         if not chunks:
@@ -488,33 +587,23 @@ class DocumentIngestionPipeline:
                 document_id="",
                 title=document_title,
                 chunks_created=0,
-                processing_time_ms=(
-                    datetime.now() - start_time
-                ).total_seconds() * 1000,
+                processing_time_ms=(datetime.now() - start_time).total_seconds() * 1000,
                 errors=["No chunks created"]
             )
 
         logger.info(f"Created {len(chunks)} chunks")
 
-        # Generate embeddings
         embedded_chunks = await self.embedder.embed_chunks(chunks)
         logger.info(f"Generated embeddings for {len(embedded_chunks)} chunks")
 
-        # Save to MongoDB
-        document_id = await self._save_to_mongodb(
-            document_title,
-            document_source,
-            document_content,
-            embedded_chunks,
-            document_metadata
+        document_id = await self._save_to_postgresql(
+            document_title, document_source, document_content,
+            embedded_chunks, document_metadata, file_hash
         )
 
-        logger.info(f"Saved document to MongoDB with ID: {document_id}")
+        logger.info(f"Saved document to PostgreSQL with ID: {document_id}")
 
-        # Calculate processing time
-        processing_time = (
-            datetime.now() - start_time
-        ).total_seconds() * 1000
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
         return IngestionResult(
             document_id=document_id,
@@ -528,29 +617,17 @@ class DocumentIngestionPipeline:
         self,
         progress_callback: Optional[callable] = None
     ) -> List[IngestionResult]:
-        """
-        Ingest all documents from the documents folder.
-
-        Args:
-            progress_callback: Optional callback for progress updates
-
-        Returns:
-            List of ingestion results
-        """
+        """Ingest all documents from the documents folder."""
         if not self._initialized:
             await self.initialize()
 
-        # Clean existing data if requested
         if self.clean_before_ingest:
             await self._clean_databases()
 
-        # Find all supported document files
         document_files = self._find_document_files()
 
         if not document_files:
-            logger.warning(
-                f"No supported document files found in {self.documents_folder}"
-            )
+            logger.warning(f"No supported document files found in {self.documents_folder}")
             return []
 
         logger.info(f"Found {len(document_files)} document files to process")
@@ -559,9 +636,7 @@ class DocumentIngestionPipeline:
 
         for i, file_path in enumerate(document_files):
             try:
-                logger.info(
-                    f"Processing file {i+1}/{len(document_files)}: {file_path}"
-                )
+                logger.info(f"Processing file {i+1}/{len(document_files)}: {file_path}")
 
                 result = await self._ingest_single_document(file_path)
                 results.append(result)
@@ -594,64 +669,39 @@ class DocumentIngestionPipeline:
 async def main() -> None:
     """Main function for running ingestion."""
     parser = argparse.ArgumentParser(
-        description="Ingest documents into MongoDB vector database"
+        description="Ingest documents into PostgreSQL with pgvector"
     )
-    parser.add_argument(
-        "--documents", "-d",
-        default="documents",
-        help="Documents folder path"
-    )
-    parser.add_argument(
-        "--no-clean",
-        action="store_true",
-        help="Skip cleaning existing data before ingestion"
-    )
-    parser.add_argument(
-        "--chunk-size",
-        type=int,
-        default=1000,
-        help="Chunk size for splitting documents"
-    )
-    parser.add_argument(
-        "--chunk-overlap",
-        type=int,
-        default=200,
-        help="Chunk overlap size"
-    )
-    parser.add_argument(
-        "--max-tokens",
-        type=int,
-        default=512,
-        help="Maximum tokens per chunk for embeddings"
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Enable verbose logging"
-    )
+    parser.add_argument("--documents", "-d", default="documents", help="Documents folder path")
+    parser.add_argument("--no-clean", action="store_true", help="Skip cleaning existing data")
+    parser.add_argument("--chunk-size", type=int, default=1000, help="Chunk size")
+    parser.add_argument("--chunk-overlap", type=int, default=200, help="Chunk overlap")
+    parser.add_argument("--max-tokens", type=int, default=512, help="Max tokens per chunk")
+    parser.add_argument("--project-id", "-p", default=None, help="Project ID for documents")
+    parser.add_argument("--no-incremental", action="store_true", help="Disable incremental ingestion (reprocess all files)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
 
-    # Configure logging
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    # Create ingestion configuration
     config = IngestionConfig(
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
         max_chunk_size=args.chunk_size * 2,
-        max_tokens=args.max_tokens
+        max_tokens=args.max_tokens,
+        project_id=args.project_id,
+        incremental=not args.no_incremental
     )
 
-    # Create and run pipeline - clean by default unless --no-clean is specified
     pipeline = DocumentIngestionPipeline(
         config=config,
         documents_folder=args.documents,
-        clean_before_ingest=not args.no_clean  # Clean by default
+        clean_before_ingest=not args.no_clean,
+        project_id=args.project_id
     )
 
     def progress_callback(current: int, total: int) -> None:
@@ -659,13 +709,10 @@ async def main() -> None:
 
     try:
         start_time = datetime.now()
-
         results = await pipeline.ingest_documents(progress_callback)
-
         end_time = datetime.now()
         total_time = (end_time - start_time).total_seconds()
 
-        # Print summary
         print("\n" + "="*50)
         print("INGESTION SUMMARY")
         print("="*50)
@@ -675,31 +722,18 @@ async def main() -> None:
         print(f"Total processing time: {total_time:.2f} seconds")
         print()
 
-        # Print individual results
         for result in results:
             status = "[OK]" if not result.errors else "[FAILED]"
             print(f"{status} {result.title}: {result.chunks_created} chunks")
-
             if result.errors:
                 for error in result.errors:
                     print(f"  Error: {error}")
 
-        # Print next steps
         print("\n" + "="*50)
         print("NEXT STEPS")
         print("="*50)
-        print("1. Create vector search index in Atlas UI:")
-        print("   - Index name: vector_index")
-        print("   - Collection: chunks")
-        print("   - Field: embedding")
-        print("   - Dimensions: 1536 (for text-embedding-3-small)")
-        print()
-        print("2. Create text search index in Atlas UI:")
-        print("   - Index name: text_index")
-        print("   - Collection: chunks")
-        print("   - Field: content")
-        print()
-        print("See .claude/reference/mongodb-patterns.md for detailed instructions")
+        print("PostgreSQL with pgvector is ready!")
+        print("Run the agent: uv run python -m src.cli")
 
     except KeyboardInterrupt:
         print("\nIngestion interrupted by user")

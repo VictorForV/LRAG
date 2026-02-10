@@ -1,10 +1,3 @@
-# Environment
-.env
-.venv/
-venv/
-ENV/
-env/
-
 # Python
 __pycache__/
 *.py[cod]
@@ -27,21 +20,55 @@ wheels/
 .installed.cfg
 *.egg
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+.venv
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# UV
-uv.lock
-
-# Logs
+# Project specific
+documents/
+*.db
+*.sqlite
+postgres/
+python/
 *.log
+
+# Temporary files
+*.tmp
+*.temp
+*.zip
+*.tar.gz
+*.7z
+
+# Environment variables
+.env
+
+# Cache
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# PostgreSQL data
+postgres/data/
+postgres/*.log
+
+# Audio transcriptions
+*.transcribed.txt
