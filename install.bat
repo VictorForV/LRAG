@@ -84,8 +84,8 @@ if not exist postgres\bin\psql.exe (
     echo.
     mkdir postgres\data
 
-    echo [1/3] Downloading PostgreSQL from SourceForge...
-    powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'https://sourceforge.net/projects/pgsqlportable/files/16.1/postgresql-16.1-1-windows-x64-full.zip/download' -OutFile 'pg_portable.zip'"
+    echo [1/3] Downloading PostgreSQL...
+    powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip' -OutFile 'pg_portable.zip'"
 
     if not exist pg_portable.zip (
         echo [X] Download failed!
