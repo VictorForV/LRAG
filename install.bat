@@ -6,135 +6,107 @@ echo ==================================================
 echo   RAG Knowledge Base - Ustanovschik
 echo ==================================================
 echo.
-echo Etot skript skachaet proekt s GitHub i ustanovit ego.
+echo Polnostyu portabilnaya ustanovka (bez ustanovki v systemu)
 echo.
 pause
 
-REM === NASTROYKI ===
-set "GITHUB_REPO=https://github.com/VictorForV/LRAG.git"
-set "PROJECT_DIR=LRAG"
+set "GITHUB_USER=VictorForV"
+set "GITHUB_REPO=LRAG"
+set "PROJECT_DIR=%GITHUB_REPO%"
 
 echo.
-echo [1/6] Proverka Git...
-git --version >nul 2>&1
-if errorlevel 1 (
-    echo [!] Git ne ustanovlen.
-    echo     Skachayte s: https://git-scm.com/download/win
-    echo.
+echo [1/7] Skachivanie proekta s GitHub...
+echo     (chtoby git ne nuzhen byl)
+echo.
+
+REM Skachivaem arhiv
+powershell -Command "Invoke-WebRequest -Uri 'https://github.com/%GITHUB_USER%/%GITHUB_REPO%/archive/refs/heads/main.zip' -OutFile 'repo.zip'"
+
+if not exist repo.zip (
+    echo [X] Oshibka skachivaniya! Proverte internet.
     pause
     exit /b 1
 )
-echo [+] Git ustanovlen
+
+echo [OK] Skachano
 
 echo.
-echo [2/6] Klonirovanie proekta s GitHub...
-echo.
+echo [2/7] Raspackovka...
+powershell -Command "Expand-Archive -Path 'repo.zip' -DestinationPath '.' -Force"
 
-REM Esli papka sushchestvuet - sprashivaem
-if exist "%PROJECT_DIR%" (
-    echo [!] Papka %PROJECT_DIR% uzhe sushchestvuet
-    echo.
-    echo     1 - Udalit i skachat' zanovo
-    echo     2 - Ispol'zovat' sushchestvuyushchuyu
-    echo     3 - Otmena
-    echo.
-
-    set /p choice="Vash vybor (1-3): "
-    if "!choice!"=="3" (
-        echo.
-        echo Otmeneno.
-        pause
-        exit /b 0
-    )
-    if "!choice!"=="2" goto :SKIP_CLONE
-    if "!choice!"=="1" (
-        echo [*] Udalenie staroy versii...
-        rmdir /s /q "%PROJECT_DIR%" 2>nul
-    )
+REM Pereimenuem papku
+if exist "%GITHUB_REPO%-main" (
+    move "%GITHUB_REPO%-main" "%PROJECT_DIR%" >nul 2>&1
 )
 
-git clone "%GITHUB_REPO%" "%PROJECT_DIR%"
-if errorlevel 1 (
-    echo [!] Oshibka klonirovaniya! Proverte podklyuchenie k internetu.
-    pause
-    exit /b 1
-)
-echo [+] Proekt skachan
+del repo.zip
+echo [OK] Raspackovano
 
-:SKIP_CLONE
 cd "%PROJECT_DIR%"
 
 echo.
-echo [3/6] Proverka Python...
+echo [3/7] Proverka Python...
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [!] Python ne ustanovlen.
-    echo     Skachayte s: https://www.python.org/downloads/
-    echo     Pri ustanovke otmet'te "Add Python to PATH"
+    echo [*] Python ne nayden v sisteme.
+    echo     Skachivanie portable Python...
+    echo     (Eto zanymet neskolko minut)
     echo.
-    pause
-    exit /b 1
+    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.0/python-3.12.0-embed-win32.zip' -OutFile 'python_portable.zip'"
+    powershell -Command "Expand-Archive -Path 'python_portable.zip' -DestinationPath 'python' -Force"
+    del python_portable.zip
+
+    REM Nuzhno dobavit' import site dlya pip
+    echo import site >> python\python312._pth
+    echo. >> python\python312._pth
+
+    set "PATH=%CD%\python;%PATH%"
+    echo [OK] Portable Python gotov
+) else (
+    echo [OK] Python ustanovlen v sisteme
 )
-echo [+] Python ustanovlen
 
 echo.
-echo [4/6] Proverka UV...
+echo [4/7] Ustanovka UV...
 uv --version >nul 2>&1
 if errorlevel 1 (
-    echo [*] Ustanovka UV (menedzher paketov)...
-    echo     Eto mozhet zanyat' neskol'ko sekund...
+    echo [*] Skachivanie UV...
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-    if errorlevel 1 (
-        echo [!] Oshibka ustanovki UV
-        pause
-        exit /b 1
-    )
     echo.
-    echo [*] ZAKROYTE ETE OKNO I ZAPUSTITE INSTALL.BAT ZANOVO
-    echo     (nuzhno perzagruzit' komandnuyu stroku)
+    echo [*] ZAKROYTE OKNO I ZAPUSTITE INSTALL.BAT ZANOVO
     pause
     exit /b 0
 )
-echo [+] UV ustanovlen
+echo [OK] UV ustanovlen
 
 echo.
-echo [5/6] Sozdanie virtual'nogo okruzheniya...
-if not exist ".venv" (
+echo [5/7] Sozdanie virtualnogo okruzheniya...
+if not exist .venv (
     uv venv
-    if errorlevel 1 (
-        echo [!] Oshibka sozdaniya virtual'nogo okruzheniya
-        pause
-        exit /b 1
-    )
-    echo [+] Virtual'noe okruzhenie sozdano
+    echo [OK] Venv sozdan
 ) else (
-    echo [+] Virtual'noe okruzhenie uzhe sushchestvuet
+    echo [OK] Venv uzhe est
 )
 
 echo.
-echo [6/6] Ustanovka zavisimostey...
-echo     Eto mozhet zanyat' neskol'ko minut...
+echo [6/7] Ustanovka zavisimostey...
+echo     (Eto mozhet zanyat neskolko minut)
 echo.
 call .venv\Scripts\activate.bat
 uv pip install -e .
-if errorlevel 1 (
-    echo [!] Oshibka ustanovki zavisimostey
-    pause
-    exit /b 1
-)
-echo [+] Zavisimosti ustanovleny
+echo [OK] Zavisimosti ustanovleny
 
 echo.
 echo [7/7] Nastroyka...
-if not exist ".env" (
-    if exist ".env.example" (
+if not exist .env (
+    if exist .env.example (
         copy .env.example .env >nul
     )
     echo.
-    echo [!] Nastroyte API klyuchi v .env faile
+    echo [X] NASTROYTE API KLYUCHI V .ENV FAILE
     notepad .env
 ) else (
-    echo [+] .env uzhe sushchestvuet
+    echo [OK] .env uzhe est
 )
 
 echo.
@@ -143,5 +115,6 @@ echo   USTANOVKA ZAVERSHENA!
 echo ==================================================
 echo.
 echo Dlya zapuska: run.bat
+echo Dlya obnovleniya: update.bat
 echo.
 pause
