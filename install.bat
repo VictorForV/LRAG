@@ -133,7 +133,7 @@ if not exist postgres\bin\psql.exe (
 
 echo.
 echo [8/8] Sozdanie .env...
-echo DATABASE_URL=postgresql://postgres@localhost:5432/rag_db > .env
+echo DATABASE_URL=postgresql://postgres:postgres@localhost:5432/rag_db > .env
 echo LLM_API_KEY=sk-or-v1-your-api-key-here >> .env
 echo LLM_MODEL=anthropic/claude-haiku-4.5 >> .env
 echo EMBEDDING_API_KEY=sk-or-v1-your-api-key-here >> .env
