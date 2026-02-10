@@ -40,6 +40,7 @@ from src.db_sync import (
     sync_get_project_documents,
     sync_check_table_exists,
     sync_delete_document,
+    sync_apply_schema,
 )
 from src.dependencies import calculate_file_hash, db_pool_context
 from src.settings import Settings, load_settings
@@ -1148,14 +1149,19 @@ EMBEDDING_MODEL=qwen/qwen3-embedding-8b
         st.error("❌ Настройте настройки, нажав кнопку ⚙️ Настройки вверху")
         st.stop()
 
-    # Check if projects table exists
+    # Check if projects table exists - auto-apply schema if not
     try:
         if not sync_check_table_exists(settings.database_url, "projects"):
-            st.warning("⚠️ Схема базы данных не обновлена. Пожалуйста, запустите миграцию:")
-            st.code("psql -U victor -h localhost -d rag_db -f src/migration_add_projects.sql")
-            st.stop()
+            st.info("📦 Применение схемы базы данных...")
+            if sync_apply_schema(settings.database_url):
+                st.success("✅ Схема применена!")
+                st.rerun()
+            else:
+                st.error("❌ Не удалось применить схему. Проверьте файл src/schema.sql")
+                st.stop()
     except Exception as e:
-        st.error(f"❌ Не удалось подключиться к базе данных: {e}")
+        st.error(f"❌ Ошибка базы данных: {e}")
+        st.info("Убедитесь что PostgreSQL запущен и .env настроен правильно")
         st.stop()
 
     # Routing

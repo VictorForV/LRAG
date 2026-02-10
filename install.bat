@@ -15,7 +15,7 @@ set "GITHUB_REPO=LRAG"
 set "PROJECT_DIR=%GITHUB_REPO%"
 
 echo.
-echo [1/7] Skachivanie proekta s GitHub...
+echo [1/8] Skachivanie proekta s GitHub...
 echo     (chtoby git ne nuzhen byl)
 echo.
 
@@ -31,7 +31,7 @@ if not exist repo.zip (
 echo [OK] Skachano
 
 echo.
-echo [2/7] Raspackovka...
+echo [2/8] Raspackovka...
 powershell -Command "Expand-Archive -Path 'repo.zip' -DestinationPath '.' -Force"
 
 REM Pereimenuem papku
@@ -45,7 +45,7 @@ echo [OK] Raspackovano
 cd "%PROJECT_DIR%"
 
 echo.
-echo [3/7] Proverka Python...
+echo [3/8] Proverka Python...
 python --version >nul 2>&1
 if errorlevel 1 (
     echo [*] Python ne nayden v sisteme.
@@ -67,7 +67,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/7] Ustanovka UV...
+echo [4/8] Ustanovka UV...
 uv --version >nul 2>&1
 if errorlevel 1 (
     echo [*] Skachivanie UV...
@@ -80,7 +80,7 @@ if errorlevel 1 (
 echo [OK] UV ustanovlen
 
 echo.
-echo [5/7] Sozdanie virtualnogo okruzheniya...
+echo [5/8] Sozdanie virtualnogo okruzheniya...
 if not exist .venv (
     uv venv
     echo [OK] Venv sozdan
@@ -89,7 +89,7 @@ if not exist .venv (
 )
 
 echo.
-echo [6/7] Ustanovka zavisimostey...
+echo [6/8] Ustanovka zavisimostey...
 echo     (Eto mozhet zanyat neskolko minut)
 echo.
 call .venv\Scripts\activate.bat
@@ -97,17 +97,21 @@ uv pip install -e .
 echo [OK] Zavisimosti ustanovleny
 
 echo.
-echo [7/7] Nastroyka...
+echo [7/8] Nastroyka...
 if not exist .env (
     if exist .env.example (
         copy .env.example .env >nul
     )
-    echo.
-    echo [X] NASTROYTE API KLYUCHI V .ENV FAILE
-    notepad .env
+    echo [OK] .env sozdan
 ) else (
     echo [OK] .env uzhe est
 )
+
+echo.
+echo [8/8] Primemenie schemy bazy dannykh...
+echo     Propuskayu (nuzhna rabochaya BD)
+echo [*] Zapustite run.bat - schema primenitsya avtomaticheski
+echo [OK] Gotovo
 
 echo.
 echo ==================================================

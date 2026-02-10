@@ -148,3 +148,31 @@ def sync_delete_document(db_url: str, document_id: str) -> bool:
         async with db_pool_context(db_url) as pool:
             return await delete_document(pool, document_id)
     return run_async(_delete())
+
+
+# === APPLY SCHEMA ===
+def sync_apply_schema(db_url: str, schema_path: str = "src/schema.sql") -> bool:
+    """Apply schema.sql to database."""
+    from pathlib import Path
+
+    schema_file = Path(schema_path)
+    if not schema_file.exists():
+        return False
+
+    with open(schema_file, 'r', encoding='utf-8') as f:
+        schema_sql = f.read()
+
+    async def _apply():
+        async with db_pool_context(db_url) as pool:
+            # Split by semicolon and execute each statement
+            statements = [s.strip() for s in schema_sql.split(';') if s.strip()]
+            for stmt in statements:
+                if stmt and not stmt.startswith('--'):
+                    try:
+                        await pool.execute(stmt)
+                    except Exception as e:
+                        # Ignore duplicate table errors, log others
+                        if "already exists" not in str(e):
+                            print(f"Warning: {e}")
+            return True
+    return run_async(_apply())
