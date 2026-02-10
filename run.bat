@@ -6,25 +6,6 @@ echo   RAG Knowledge Base - Web UI
 echo ==================================================
 echo.
 
-REM Start portable PostgreSQL if exists
-if exist postgres\bin\pg_ctl.exe (
-    echo [*] Zapusk portable PostgreSQL...
-    postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
-    timeout /t 2 /nobreak >nul
-    echo [+] PostgreSQL rabotaet
-) else if exist postgres\postgresql-*\bin\pg_ctl.exe (
-    echo [*] Zapusk portable PostgreSQL...
-    for /d %%i in (postgres\postgresql-*) do "%%i\bin\pg_ctl.exe" -D postgres\data -l postgres\log.txt start
-    timeout /t 2 /nobreak >nul
-    echo [+] PostgreSQL rabotaet
-) else (
-    echo [!] PostgreSQL ne nayden!
-    echo.
-    echo    Zapustite setup_postgres.bat dlya ustanovki
-    echo    ili ustanovite PostgreSQL v sisteme
-    echo.
-)
-
 REM Activate virtual environment
 if exist .venv\Scripts\activate.bat (
     call .venv\Scripts\activate.bat
@@ -61,16 +42,6 @@ echo ==================================================
 echo.
 
 streamlit run src/web_ui.py --server.headless=true
-
-REM Stop PostgreSQL when exiting
-if exist postgres\bin\pg_ctl.exe (
-    echo.
-    echo ==================================================
-    echo [*] Ostanovka PostgreSQL...
-    echo ==================================================
-    postgres\bin\pg_ctl.exe -D postgres\data stop
-    echo [+] PostgreSQL ostanovlen
-)
 
 echo.
 echo ==================================================

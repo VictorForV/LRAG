@@ -15,7 +15,7 @@ set "GITHUB_REPO=LRAG"
 set "PROJECT_DIR=%GITHUB_REPO%"
 
 echo.
-echo [1/9] Skachivanie proekta s GitHub...
+echo [1/8] Skachivanie proekta s GitHub...
 echo.
 
 REM Skachivaem arhiv
@@ -30,7 +30,7 @@ if not exist repo.zip (
 echo [OK] Skachano
 
 echo.
-echo [2/9] Raspackovka...
+echo [2/8] Raspackovka...
 powershell -Command "Expand-Archive -Path 'repo.zip' -DestinationPath '.' -Force"
 
 REM Pereimenuem papku
@@ -44,7 +44,7 @@ echo [OK] Raspackovano
 cd "%PROJECT_DIR%"
 
 echo.
-echo [3/9] Proverka Python...
+echo [3/8] Proverka Python...
 python --version >nul 2>&1
 if errorlevel 1 (
     echo [*] Python ne nayden v sisteme.
@@ -66,7 +66,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/9] Ustanovka UV...
+echo [4/8] Ustanovka UV...
 uv --version >nul 2>&1
 if errorlevel 1 (
     echo [*] Skachivanie UV...
@@ -79,7 +79,7 @@ if errorlevel 1 (
 echo [OK] UV ustanovlen
 
 echo.
-echo [5/9] Sozdanie virtualnogo okruzheniya...
+echo [5/8] Sozdanie virtualnogo okruzheniya...
 if not exist .venv (
     uv venv
     echo [OK] Venv sozdan
@@ -88,7 +88,7 @@ if not exist .venv (
 )
 
 echo.
-echo [6/9] Ustanovka zavisimostey...
+echo [6/8] Ustanovka zavisimostey...
 echo     (Eto mozhet zanyat neskolko minut)
 echo.
 call .venv\Scripts\activate.bat
@@ -96,23 +96,27 @@ uv pip install -e .
 echo [OK] Zavisimosti ustanovleny
 
 echo.
-echo [7/9] Ustanovka PostgreSQL...
-set "PG_OK="
-if exist postgres\bin\psql.exe set "PG_OK=1"
-for /d %%i in (postgres\postgresql-*) do if exist "%%i\bin\psql.exe" set "PG_OK=1"
-
-if not defined PG_OK (
-    echo [*] Skachivanie i ustanovka portable PostgreSQL...
-    echo     Eto zanymet neskolko minut...
+echo [7/8] Proverka PostgreSQL...
+psql --version >nul 2>&1
+if errorlevel 1 (
     echo.
-    call setup_postgres.bat
+    echo [!] PostgreSQL NE ustanovlen v sisteme!
+    echo.
+    echo    Skachite i ustanovite PostgreSQL:
+    echo    https://www.postgresql.org/download/windows/
+    echo.
+    echo    Pri ustanovke:
+    echo    - Password: postgres
+    echo    - Port: 5432
+    echo.
+    pause
 ) else (
-    echo [OK] PostgreSQL uzhe ustanovlen
+    echo [OK] PostgreSQL ustanovlen v sisteme
 )
 
 echo.
-echo [8/9] Sozdanie .env fajla...
-echo DATABASE_URL=postgresql://postgres@localhost:5432/rag_db > .env
+echo [8/8] Sozdanie .env fajla...
+echo DATABASE_URL=postgresql://postgres:postgres@localhost:5432/rag_db > .env
 echo LLM_API_KEY=sk-or-v1-your-api-key-here >> .env
 echo LLM_MODEL=anthropic/claude-haiku-4.5 >> .env
 echo EMBEDDING_API_KEY=sk-or-v1-your-api-key-here >> .env
@@ -121,31 +125,6 @@ echo LLM_BASE_URL=https://openrouter.ai/api/v1 >> .env
 echo EMBEDDING_BASE_URL=https://api.openai.com/v1 >> .env
 echo AUDIO_MODEL=openai/whisper-1 >> .env
 echo [OK] .env sozdan
-
-echo.
-echo [9/9] Sozdanie bazy dannykh...
-echo [*] Zapusk PostgreSQL...
-if exist postgres\bin\pg_ctl.exe (
-    postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
-    timeout /t 3 /nobreak >nul
-)
-if exist postgres\postgresql-*\bin\pg_ctl.exe (
-    for /d %%i in (postgres\postgresql-*) do "%%i\bin\pg_ctl.exe" -D postgres\data -l postgres\log.txt start
-    timeout /t 3 /nobreak >nul
-)
-
-echo [*] Sozdanie BD rag_db...
-if exist postgres\bin\psql.exe (
-    postgres\bin\psql.exe -U postgres -c "CREATE DATABASE rag_db;" 2>nul
-) else if exist postgres\postgresql-*\bin\psql.exe (
-    for /d %%i in (postgres\postgresql-*) do "%%i\bin\psql.exe" -U postgres -c "CREATE DATABASE rag_db;" 2>nul
-)
-
-echo [*] Ostanovka PostgreSQL...
-if exist postgres\bin\pg_ctl.exe (
-    postgres\bin\pg_ctl.exe -D postgres\data stop
-)
-echo [OK] BD gotova
 
 echo.
 echo ==================================================
