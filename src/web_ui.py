@@ -71,7 +71,7 @@ st.markdown("""
 .stApp header {padding: 0;}
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header {display: none;}
+.stHeader {display: none;}
 
 /* Hide deploy button */
 .stDeployButton {display: none;}
