@@ -24,12 +24,18 @@ echo.
 echo [*] Obnovlenie fajlov...
 powershell -Command "Expand-Archive -Path 'update.zip' -DestinationPath '.update_temp' -Force"
 
-REM Kopiruem novye fajly (zatem sushchestvuyushchie)
-xcopy ".update_temp\%GITHUB_REPO%-main\*" ".\" /E /I /Y /H /R
+REM Kopiruem fajly MINUYA papku LRAG-main
+xcopy ".update_temp\%GITHUB_REPO%-main\src" ".\src" /E /I /Y /H /R /Q 2>nul
+xcopy ".update_temp\%GITHUB_REPO%-main\*.bat" ".\" /Y /H /R /Q 2>nul
+xcopy ".update_temp\%GITHUB_REPO%-main\*.sh" ".\" /Y /H /R /Q 2>nul
+xcopy ".update_temp\%GITHUB_REPO%-main\*.toml" ".\" /Y /H /R /Q 2>nul
+xcopy ".update_temp\%GITHUB_REPO%-main\*.md" ".\" /Y /H /R /Q 2>nul
+copy /Y ".update_temp\%GITHUB_REPO%-main\.env.example" ".\.env.example" >nul 2>&1
+copy /Y ".update_temp\%GITHUB_REPO%-main\.gitignore" ".\.gitignore" >nul 2>&1
 
 REM Ochischaem
-rmdir /s /q ".update_temp"
-del update.zip
+rmdir /s /q ".update_temp" 2>nul
+del update.zip 2>nul
 
 echo.
 echo [+] Update gotov!
