@@ -97,7 +97,11 @@ echo [OK] Zavisimosti ustanovleny
 
 echo.
 echo [7/9] Ustanovka PostgreSQL...
-if not exist postgres (
+set "PG_OK="
+if exist postgres\bin\psql.exe set "PG_OK=1"
+for /d %%i in (postgres\postgresql-*) do if exist "%%i\bin\psql.exe" set "PG_OK=1"
+
+if not defined PG_OK (
     echo [*] Skachivanie i ustanovka portable PostgreSQL...
     echo     Eto zanymet neskolko minut...
     echo.
