@@ -16,6 +16,7 @@ import hashlib
 import tempfile
 import logging
 import traceback
+import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -23,35 +24,18 @@ import streamlit as st
 from streamlit_chat import message as st_message
 from streamlit.components.v1 import html as st_html
 
-from src.db_sync import (
-    sync_create_project,
-    sync_list_projects,
-    sync_get_project,
-    sync_update_project,
-    sync_delete_project,
-    sync_create_session,
-    sync_list_sessions,
-    sync_get_session,
-    sync_update_session,
-    sync_delete_session,
-    sync_clear_session_messages,
-    sync_add_message,
-    sync_get_session_messages,
-    sync_get_project_documents,
-    sync_check_table_exists,
-    sync_delete_document,
-    sync_apply_schema,
+# Setup logging to see errors in console
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
 )
-from src.dependencies import calculate_file_hash, db_pool_context
-from src.settings import Settings, load_settings
-from src.agent import rag_agent
-from src.ingestion.ingest import (
-    DocumentIngestionPipeline,
-    IngestionConfig,
-    IngestionResult,
-)
-
 logger = logging.getLogger(__name__)
+
+# Log startup
+logger.info("=" * 50)
+logger.info("Starting RAG Knowledge Base Web UI")
+logger.info("=" * 50)
 
 
 # === PAGE CONFIG ===
@@ -1046,14 +1030,20 @@ async def _find_document_by_hash(
 # === MAIN APP ===
 def main():
     """Main application."""
+    logger.info("main() started")
+
     # Initialize settings in session state
     if "app_settings" not in st.session_state:
+        logger.info("Loading app settings...")
         try:
             st.session_state.app_settings = load_app_settings()
-        except:
+            logger.info(f"Settings loaded: {st.session_state.app_settings is not None}")
+        except Exception as e:
+            logger.error(f"Failed to load settings: {e}")
             st.session_state.app_settings = None
 
     settings = st.session_state.app_settings
+    logger.info(f"Settings valid: {settings is not None}")
 
     # === TOP BAR WITH SETTINGS BUTTON ===
     col1, col2 = st.columns([5, 1])
@@ -1172,4 +1162,12 @@ EMBEDDING_MODEL=qwen/qwen3-embedding-8b
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        logger.info("Running main()")
+        main()
+        logger.info("main() completed successfully")
+    except Exception as e:
+        logger.error(f"Fatal error in main(): {e}", exc_info=True)
+        st.error(f"❌ Критическая ошибка: {e}")
+        st.code(traceback.format_exc())
+        logger.error(traceback.format_exc())

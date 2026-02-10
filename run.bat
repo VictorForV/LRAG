@@ -60,7 +60,7 @@ echo   LOGS:
 echo ==================================================
 echo.
 
-streamlit run src/web_ui.py --server.headless=true --logger.level=info
+streamlit run src/web_ui.py --server.headless=true
 
 REM Stop PostgreSQL when exiting
 if exist postgres\bin\pg_ctl.exe (
