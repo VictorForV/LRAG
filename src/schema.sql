@@ -1,6 +1,15 @@
 -- PostgreSQL schema for RAG with pgvector
 -- Run this to create the required tables
 
+-- Projects table - for organizing documents into projects (MUST BE FIRST!)
+CREATE TABLE IF NOT EXISTS projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Documents table - stores source documents
 CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,15 +36,6 @@ CREATE TABLE IF NOT EXISTS chunks (
     token_count INTEGER,
     metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Projects table - for organizing documents into projects
-CREATE TABLE IF NOT EXISTS projects (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL UNIQUE,
-    description TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Chat sessions table
