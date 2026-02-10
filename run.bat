@@ -6,7 +6,15 @@ echo   RAG Knowledge Base - Web UI
 echo ==================================================
 echo.
 
-REM Activate virtual environment
+REM Start portable PostgreSQL
+if exist postgres\bin\pg_ctl.exe (
+    echo [*] Starting PostgreSQL...
+    postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
+    timeout /t 2 /nobreak >nul
+    echo [+] PostgreSQL running
+)
+
+REM Activate venv
 if exist .venv\Scripts\activate.bat (
     call .venv\Scripts\activate.bat
     echo [OK] Virtual environment activated
@@ -17,34 +25,28 @@ if exist .venv\Scripts\activate.bat (
     exit /b 1
 )
 
-REM Check if .env exists
+REM Check .env
 if not exist .env (
-    echo [WARNING] .env file not found - using defaults
-    echo Please configure settings in the Web UI sidebar
+    echo [WARNING] .env not found
     echo.
 )
 
-REM Set Python path
 set PYTHONPATH=%~dp0
 
-REM Start Streamlit with full logging
 echo.
 echo ==================================================
 echo   Starting Web UI...
 echo ==================================================
 echo.
-echo Browser will open at: http://localhost:8501
+echo Browser: http://localhost:8501
 echo Press Ctrl+C to stop
-echo.
-echo ==================================================
-echo   LOGS:
-echo ==================================================
 echo.
 
 streamlit run src/web_ui.py --server.headless=true
 
-echo.
-echo ==================================================
-echo   Rabota zavershena
-echo ==================================================
+REM Stop PostgreSQL
+if exist postgres\bin\pg_ctl.exe (
+    postgres\bin\pg_ctl.exe -D postgres\data stop
+)
+
 pause
