@@ -85,7 +85,16 @@ if not exist postgres\bin\psql.exe (
     mkdir postgres\data
 
     echo [1/3] Downloading PostgreSQL...
-    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip' -OutFile 'pg_portable.zip'"
+
+    REM Try curl first (Windows 10+)
+    curl --version >nul 2>&1
+    if not errorlevel 1 (
+        echo [*] Using curl...
+        curl -L -o pg_portable.zip "https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip" --ssl-no-revoke
+    ) else (
+        echo [*] Using PowerShell...
+        powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls; $ProgressPreference='SilentlyContinue'; [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}; Invoke-WebRequest -Uri 'https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip' -OutFile 'pg_portable.zip'"
+    )
 
     if not exist pg_portable.zip (
         echo [X] Download failed!
