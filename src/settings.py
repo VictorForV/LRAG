@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # PostgreSQL Configuration
     database_url: str = Field(..., description="PostgreSQL connection string")
-    database_name: str = Field(default="rag_db", description="Database name")
+    database_name: str = Field(default="rag_kb", description="Database name")
 
     # LLM Configuration (OpenAI-compatible)
     llm_provider: str = Field(
