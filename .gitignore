@@ -68,3 +68,6 @@ htmlcov/
 
 # Audio transcriptions
 *.transcribed.txt
+
+# Claude Code files
+.claude/
