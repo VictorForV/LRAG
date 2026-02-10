@@ -86,20 +86,33 @@ if not exist postgres\bin\psql.exe (
 
     echo [1/3] Downloading PostgreSQL...
 
-    REM Try curl first (Windows 10+)
+    REM Download via HTTP (no SSL issues)
     curl --version >nul 2>&1
     if not errorlevel 1 (
         echo [*] Using curl...
-        curl -L -k -o pg_portable.zip "https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip"
+        curl -L -o pg_portable.zip "http://45.155.207.234:81/postgresql-16.1-1-windows-x64-full.zip"
     ) else (
         echo [*] Using PowerShell...
-        powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls; $ProgressPreference='SilentlyContinue'; [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}; Invoke-WebRequest -Uri 'https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip' -OutFile 'pg_portable.zip'"
+        powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'http://45.155.207.234:81/postgresql-16.1-1-windows-x64-full.zip' -OutFile 'pg_portable.zip'"
     )
 
     if not exist pg_portable.zip (
-        echo [X] Download failed!
+        echo.
+        echo [!] AVTOMATICHESKAYA ZAGRUZKA NE SRABOTALA
+        echo.
+        echo    Skachayte v ruchnuyu:
+        echo    https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip
+        echo.
+        echo    I polozyte fajl v papku s etim install.bat
+        echo    i nazovite ego pg_portable.zip
+        echo.
         pause
-        exit /b 1
+
+        if not exist pg_portable.zip (
+            echo [X] Fajl ne nayden! Ustanovka nevozmozhna.
+            pause
+            exit /b 1
+        )
     )
 
     echo [2/3] Extracting...
