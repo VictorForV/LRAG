@@ -20,7 +20,7 @@ if exist .venv\Scripts\activate.bat (
     echo [OK] Virtual environment activated
 ) else (
     echo [ERROR] Virtual environment not found!
-    echo Please run: install_windows_portable.bat
+    echo Please run: install.bat
     pause
     exit /b 1
 )
@@ -35,19 +35,34 @@ if not exist .env (
 REM Set Python path
 set PYTHONPATH=%~dp0
 
-REM Start Streamlit
+REM Start Streamlit with full logging
 echo.
-echo Starting Web UI...
-echo Browser will open automatically at http://localhost:8501
+echo ==================================================
+echo   Starting Web UI...
+echo ==================================================
+echo.
+echo Browser will open at: http://localhost:8501
 echo Press Ctrl+C to stop
 echo.
-streamlit run src/web_ui.py --server.headless=true
+echo ==================================================
+echo   LOGS:
+echo ==================================================
+echo.
+
+streamlit run src/web_ui.py --server.headless=true --logger.level=info
 
 REM Stop PostgreSQL when exiting
 if exist postgres\bin\pg_ctl.exe (
     echo.
+    echo ==================================================
     echo [*] Ostanovka PostgreSQL...
+    echo ==================================================
     postgres\bin\pg_ctl.exe -D postgres\data stop
+    echo [+] PostgreSQL ostanovlen
 )
 
+echo.
+echo ==================================================
+echo   Rabota zavershena
+echo ==================================================
 pause
