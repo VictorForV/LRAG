@@ -66,9 +66,5 @@ htmlcov/
 # Streamlit
 .streamlit/secrets.toml
 
-# PostgreSQL data
-postgres/data/
-postgres/*.log
-
 # Audio transcriptions
 *.transcribed.txt
