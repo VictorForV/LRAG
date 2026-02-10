@@ -90,7 +90,7 @@ if not exist postgres\bin\psql.exe (
     curl --version >nul 2>&1
     if not errorlevel 1 (
         echo [*] Using curl...
-        curl -L -o pg_portable.zip "https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip" --ssl-no-revoke
+        curl -L -k -o pg_portable.zip "https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip"
     ) else (
         echo [*] Using PowerShell...
         powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls; $ProgressPreference='SilentlyContinue'; [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}; Invoke-WebRequest -Uri 'https://taskcase.ru/static/downloads/postgresql-16.1-1-windows-x64-full.zip' -OutFile 'pg_portable.zip'"
