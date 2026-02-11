@@ -12,11 +12,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantStyles = {
-  default: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-  primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-  secondary: 'bg-muted text-muted-foreground hover:bg-muted/80',
-  ghost: 'hover:bg-accent hover:text-accent-foreground',
-  destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+  default: 'bg-slate-600 text-white border-none shadow-md hover:bg-slate-700 hover:shadow-lg',
+  primary: 'bg-slate-600 text-white border-none shadow-md hover:bg-slate-700 hover:shadow-lg',
+  secondary: 'bg-slate-100 text-slate-700 border-none hover:bg-slate-200',
+  ghost: 'hover:bg-slate-100 hover:text-slate-900',
+  destructive: 'bg-slate-500 text-white border-none hover:bg-slate-600',
 };
 
 const sizeStyles = {
@@ -26,17 +26,19 @@ const sizeStyles = {
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'default', size = 'md', children, ...props }, ref) => {
+  ({ className, variant = 'default', size = 'md', children, style, ...props }, ref) => {
     return (
       <button
         className={cn(
-          'inline-flex items-center justify-center rounded-md font-medium transition-colors',
+          'inline-flex items-center justify-center rounded-md font-medium transition-all',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           'disabled:pointer-events-none disabled:opacity-50',
+          'hover:translate-y-[-2px]',
           variantStyles[variant],
           sizeStyles[size],
           className
         )}
+        style={style}
         ref={ref}
         {...props}
       >

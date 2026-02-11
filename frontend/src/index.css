@@ -1,82 +1,206 @@
 @import "tailwindcss";
 
+/* ============================================
+   MUTED PROFESSIONAL THEME
+   Clean, subtle design with soft grays
+   ============================================ */
+
 @theme {
-  --color-background: 0 0% 100%;
-  --color-foreground: 222.2 84% 4.9%;
-  --color-card: 0 0% 100%;
-  --color-card-foreground: 222.2 84% 4.9%;
-  --color-popover: 0 0% 100%;
-  --color-popover-foreground: 222.2 84% 4.9%;
-  --color-primary: 221.2 83.2% 53.3%;
-  --color-primary-foreground: 210 40% 98%;
-  --color-secondary: 210 40% 96.1%;
-  --color-secondary-foreground: 222.2 47.4% 11.2%;
-  --color-muted: 210 40% 96.1%;
-  --color-muted-foreground: 215.4 16.3% 46.9%;
-  --color-accent: 210 40% 96.1%;
-  --color-accent-foreground: 222.2 47.4% 11.2%;
-  --color-destructive: 0 84.2% 60.2%;
-  --color-destructive-foreground: 210 40% 98%;
-  --color-border: 214.3 31.8% 91.4%;
-  --color-input: 214.3 31.8% 91.4%;
-  --color-ring: 221.2 83.2% 53.3%;
-  --radius: 0.5rem;
+  /* Muted professional color palette */
+  --color-bg-primary: #F8FAFC;
+  --color-bg-secondary: #F1F5F9;
+  --color-bg-muted: #E2E8F0;
+
+  --color-accent: #64748B;
+  --color-accent-hover: #475569;
+
+  --color-text-primary: #1E293B;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+  --color-border: transparent;
+  --color-border-light: transparent;
+  --color-border-input: #CBD5E1;
+
+  /* Emojis */
+  --emoji-check: #10B981;
+  --emoji-star: #F59E0B;
+  --emoji-tip: #FBBF24;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --color-background: #F8FAFC;
+    --color-foreground: #1E293B;
+    --color-card: #FFFFFF;
+    --color-card-foreground: #1E293B;
+    --color-popover: #FFFFFF;
+    --color-popover-foreground: #475569;
+    --color-primary: #64748B;
+    --color-primary-foreground: #FFFFFF;
+    --color-secondary: #94A3B8;
+    --color-secondary-foreground: #475569;
+    --color-muted: #F1F5F9;
+    --color-accent: #64748B;
+    --color-accent-foreground: #FFFFFF;
+    --color-destructive: #94A3B8;
+    --color-destructive-foreground: #475569;
+    --color-border: transparent;
+    --color-input: #CBD5E1;
+    --color-ring: #64748B;
+    --color-bg-subtle: #F8FAFC;
+    --color-border-subtle: transparent;
   }
+}
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-  }
+/* ============================================
+   UTILITY CLASSES
+ * ============================================ */
+
+/* Primary button - muted with background */
+.btn-primary {
+  background: #64748B;
+  color: #FFFFFF;
+  border: none;
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.15);
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background: #475569;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
+}
+
+.btn-primary:active {
+  background: #475569;
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(100, 116, 139, 0.15);
+}
+
+/* Secondary button */
+.btn-secondary {
+  background: #F1F5F9;
+  color: #475569;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #E2E8F0;
+}
+
+/* Destructive button */
+.btn-destructive {
+  background: #94A3B8;
+  color: #FFFFFF;
+  border: none;
+  box-shadow: 0 2px 4px rgba(148, 163, 184, 0.2);
+}
+
+/* Card styles */
+.card {
+  background: #FFFFFF;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.card-hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Input styles */
+.input {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  border-color: #64748B;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.1);
+}
+
+/* Background levels */
+.bg-level-0 {
+  background: #F8FAFC;
+}
+
+.bg-level-1 {
+  background: #F1F5F9;
+}
+
+.bg-level-2 {
+  background: #E2E8F0;
+}
+
+/* ============================================
+   ANIMATIONS
+ * ============================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Loading shimmer */
+@keyframes shimmer {
+  0% { background-position: -200%; }
+  100% { background-position: 200%; }
+}
+
+/* ============================================
+   HOVER EFFECTS
+ * ============================================ */
+
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0, 2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Smooth transitions */
+.smooth-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: transparent;
   }
+
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: #F8FAFC;
+    color: #1E293B;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Smooth transitions */
+  button,
+  a,
+  .card,
+  input {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  button:hover,
+  a:hover,
+  .card:hover,
+  input:hover {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0, 2, 1);
   }
 }

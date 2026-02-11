@@ -72,25 +72,25 @@ export function DialogContent({ children, className }: { children: React.ReactNo
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50"
+        className="fixed inset-0 bg-slate-400/30 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
         onClick={() => setOpen(false)}
       />
 
       {/* Dialog */}
       <div
         className={cn(
-          'relative z-50 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 w-full mx-4',
-          'animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2',
+          'relative z-50 bg-white rounded-xl shadow-lg w-full mx-4',
+          'transition-all duration-300 animate-in fade-in zoom-in-95 slide-in-from-bottom-4',
           className
         )}
         style={{ maxWidth: '900px' }}
       >
         <button
           onClick={() => setOpen(false)}
-          className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
+          className="absolute right-4 top-4 rounded-md p-1 opacity-60 transition-all hover:bg-slate-100 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-400"
         >
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">Закрыть</span>
         </button>
         {children}
       </div>
