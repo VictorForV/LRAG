@@ -6,12 +6,20 @@ echo   RAG Knowledge Base - Web UI
 echo ==================================================
 echo.
 
-REM Start portable PostgreSQL
+REM Check PostgreSQL status
 if exist postgres\bin\pg_ctl.exe (
-    echo [*] Starting PostgreSQL...
-    postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
-    timeout /t 2 /nobreak >nul
-    echo [+] PostgreSQL running
+    echo [*] Checking PostgreSQL status...
+    postgres\bin\pg_ctl.exe -D postgres\data status >nul 2>&1
+    if errorlevel 0 (
+        echo [OK] PostgreSQL already running
+    ) else (
+        echo [*] Starting PostgreSQL...
+        postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
+        timeout /t 3 /nobreak >nul
+        echo [+] PostgreSQL started
+    )
+) else (
+    echo [WARNING] PostgreSQL not found - run install.bat
 )
 
 REM Activate venv
@@ -41,12 +49,25 @@ echo.
 echo Browser: http://localhost:8888
 echo Press Ctrl+C to stop
 echo.
+echo Waiting for backend to start...
+echo.
 
+REM Start backend with auto-restart on error
+:retry
 python -m uvicorn src.web_api:app --host 0.0.0.0 --port 8888
+if errorlevel 1 (
+    echo.
+    echo [*] Backend crashed, restarting in 5 seconds...
+    timeout /t 5 /nobreak >nul
+    goto retry
+)
 
-REM Stop PostgreSQL
+REM Cleanup - stop PostgreSQL
 if exist postgres\bin\pg_ctl.exe (
+    echo.
+    echo [*] Stopping PostgreSQL...
     postgres\bin\pg_ctl.exe -D postgres\data stop
+    echo [OK] PostgreSQL stopped
 )
 
 pause
