@@ -119,32 +119,23 @@ if not exist postgres\bin\psql.exe (
     powershell -Command "Expand-Archive -Path 'pg_portable.zip' -DestinationPath 'postgres_temp' -Force"
     del pg_portable.zip
 
-    echo [*] Checking extracted structure...
-    if exist "postgres_temp\pgsql\bin\initdb.exe" (
-        echo [FOUND] Structure: pgsql\bin\ exists
-        goto copy_pgsql
-    )
-    if exist "postgres_temp\bin\initdb.exe" (
-        echo [FOUND] Structure: bin\ exists
-        goto copy_bin
-    )
-    echo [ERROR] Neither pgsql\bin\ nor bin\ found in archive!
-    echo Current structure:
-    dir /b postgres_temp
-    pause
-    exit /b 1
+    echo [*] Copying extracted files to postgres folder...
 
-    :copy_pgsql
-    echo [*] Copying pgsql folder...
-    xcopy "postgres_temp\pgsql" "postgres\pgsql" /E /I /H /Y /S
+    REM Copy pgsql folder (contains share, lib, and bin subfolders)
+    if exist "postgres_temp\pgsql" (
+        xcopy "postgres_temp\pgsql" "postgres\pgsql" /E /I /H /Y /S
+        echo [OK] Copied pgsql folder
+    ) else (
+        echo [ERROR] pgsql folder not found in archive!
+        dir /b postgres_temp
+        pause
+        exit /b 1
+    )
+
+    REM Copy remaining root files (excluding already copied pgsql)
     xcopy "postgres_temp\*" "postgres\" /E /I /H /Y /S /EXCLUDE:pgsql\ 2>nul
-    rmdir /s /q "postgres_temp"
-    goto init_db
 
-    :copy_bin
-    echo [*] Copying bin folder directly...
-    xcopy "postgres_temp\bin" "postgres\bin" /E /I /H /Y /S
-    xcopy "postgres_temp\*" "postgres\" /E /I /H /Y /S /EXCLUDE:bin 2>nul
+    REM Cleanup
     rmdir /s /q "postgres_temp"
 
     :init_db
@@ -153,8 +144,12 @@ if not exist postgres\bin\psql.exe (
     REM Check where initdb.exe ended up
     if exist "postgres\pgsql\bin\initdb.exe" (
         set "INITDB=postgres\pgsql\bin\initdb.exe"
+        set "PGCTL=postgres\pgsql\bin\pg_ctl.exe"
+        set "PSQL=postgres\pgsql\bin\psql.exe"
     ) else if exist "postgres\bin\initdb.exe" (
         set "INITDB=postgres\bin\initdb.exe"
+        set "PGCTL=postgres\bin\pg_ctl.exe"
+        set "PSQL=postgres\bin\psql.exe"
     ) else (
         echo [ERROR] initdb.exe NOT FOUND after copy!
         echo Current postgres folder:
@@ -167,15 +162,15 @@ if not exist postgres\bin\psql.exe (
     "%INITDB%" -D postgres\data -U postgres -A trust -E utf8 --locale=C
 
     echo [*] Starting PostgreSQL temporarily to create database...
-    postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
+    "%PGCTL%" -D postgres\data -l postgres\log.txt start
     timeout /t 2 /nobreak >nul
 
     echo [*] Creating database...
-    postgres\bin\psql.exe -U postgres -c "CREATE DATABASE rag_kb;"
-    postgres\bin\psql.exe -U postgres -d rag_kb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+    "%PSQL%" -U postgres -c "CREATE DATABASE rag_kb;"
+    "%PSQL%" -U postgres -d rag_kb -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
     echo [*] Stopping PostgreSQL...
-    postgres\bin\pg_ctl.exe -D postgres\data stop
+    "%PGCTL%" -D postgres\data stop
 
     echo [OK] PostgreSQL initialized and database created
 ) else (
