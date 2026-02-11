@@ -30,8 +30,14 @@ xcopy ".update_temp\%GITHUB_REPO%-main\*.bat" ".\" /Y /H /R /Q 2>nul
 xcopy ".update_temp\%GITHUB_REPO%-main\*.sh" ".\" /Y /H /R /Q 2>nul
 xcopy ".update_temp\%GITHUB_REPO%-main\*.toml" ".\" /Y /H /R /Q 2>nul
 xcopy ".update_temp\%GITHUB_REPO%-main\*.md" ".\" /Y /H /R /Q 2>nul
-copy /Y ".update_temp\%GITHUB_REPO%-main\.env.example" ".\.env.example" >nul 2>&1
-copy /Y ".update_temp\%GITHUB_REPO%-main\.gitignore" ".\.gitignore" >nul 2>&1
+xcopy ".update_temp\%GITHUB_REPO%-main\.env.example" ".\" /Y /H /R /Q 2>nul
+xcopy ".update_temp\%GITHUB_REPO%-main\.gitignore" ".\" /Y /H /R /Q 2>nul
+
+REM Kopiruem frontend build (production)
+if exist ".update_temp\%GITHUB_REPO%-main\frontend\dist" (
+    xcopy ".update_temp\%GITHUB_REPO%-main\frontend\dist" ".\frontend\dist" /E /I /Y /H /R /Q 2>nul
+    echo [OK] Frontend obnovlen
+)
 
 REM Ochischaem
 rmdir /s /q ".update_temp" 2>nul

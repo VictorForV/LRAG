@@ -16,8 +16,9 @@ dependencies = [
     "rich>=13.9.0",
     "python-dotenv>=1.0.1",
     "aiofiles>=24.1.0",
-    "streamlit>=1.40.0",
-    "streamlit-chat>=0.1.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.17",
     "natasha>=1.6.0",
 ]
 
@@ -34,5 +35,5 @@ dev-dependencies = [
 ]
 
 [project.scripts]
-rag-web = "src.web_ui:main"
+rag-web = "src.web_api:main"
 rag-cli = "src.cli:main"

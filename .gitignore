@@ -64,8 +64,8 @@ python/
 .coverage
 htmlcov/
 
-# Streamlit
-.streamlit/secrets.toml
+# Streamlit (removed - using FastAPI now)
+
 
 # Audio transcriptions
 *.transcribed.txt

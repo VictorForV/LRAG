@@ -35,14 +35,14 @@ set PYTHONPATH=%~dp0
 
 echo.
 echo ==================================================
-echo   Starting Web UI...
+echo   Starting Web Server...
 echo ==================================================
 echo.
-echo Browser: http://localhost:8501
+echo Browser: http://localhost:8888
 echo Press Ctrl+C to stop
 echo.
 
-streamlit run src/web_ui.py --server.headless=true
+python -m uvicorn src.web_api:app --host 0.0.0.0 --port 8888
 
 REM Stop PostgreSQL
 if exist postgres\bin\pg_ctl.exe (

@@ -2,7 +2,7 @@
  * Workspace Page - Main workspace with chat, documents, and upload
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -43,7 +43,9 @@ export default function WorkspacePage() {
   const [inputMessage, setInputMessage] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadResults, setUploadResults] = useState<any[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -248,6 +250,30 @@ export default function WorkspacePage() {
       setError(message);
     } finally {
       setUploadingFiles(false);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files);
     }
   };
 
@@ -530,25 +556,34 @@ export default function WorkspacePage() {
                     <CardDescription>Upload PDF, DOCX, TXT, MD, images, or audio files</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                        isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+                      }`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
                       <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mb-4">Drag files here or click to select</p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {isDragging ? 'Drop files here...' : 'Drag files here or click to select'}
+                      </p>
                       <input
+                        ref={fileInputRef}
                         type="file"
                         multiple
                         accept=".pdf,.docx,.doc,.txt,.md,.jpg,.jpeg,.png,.mp3,.wav"
                         onChange={(e) => handleFileUpload(e.target.files)}
                         disabled={uploadingFiles}
                         className="hidden"
-                        id="file-upload"
                       />
-                      <label htmlFor="file-upload">
-                        <span className="inline-block">
-                          <Button variant="primary" disabled={uploadingFiles}>
-                            {uploadingFiles ? 'Uploading...' : 'Select Files'}
-                          </Button>
-                        </span>
-                      </label>
+                      <Button
+                        variant="primary"
+                        disabled={uploadingFiles}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        {uploadingFiles ? 'Uploading...' : 'Select Files'}
+                      </Button>
                     </div>
 
                     {uploadResults.length > 0 && (
