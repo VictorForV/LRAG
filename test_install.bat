@@ -93,6 +93,4 @@ echo ==================================================
 echo.
 echo Check the output above to see what went wrong.
 echo.
-echo Press any key to open command prompt for manual testing...
-pause >nul
-cmd /k
+echo Window will stay open. Close manually with X button or Ctrl+C.

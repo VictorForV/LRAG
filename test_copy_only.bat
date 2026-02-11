@@ -70,6 +70,4 @@ echo.
 echo If all methods show SUCCESS, the copy works.
 echo If methods show FAIL, check the source folder structure.
 echo.
-echo Press any key to open command prompt for manual testing...
-pause >nul
-cmd /k
+echo Window will stay open. Close manually with X button or Ctrl+C.
