@@ -1,9 +1,9 @@
 """Chat message management routes."""
 
-import logging
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
 import json
+import logging
+from typing import List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.api.models.requests import MessageCreate
 from src.api.models.responses import Message
@@ -13,6 +13,28 @@ import asyncpg
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["messages"])
+
+
+def parse_metadata(metadata: Any) -> Dict[str, Any]:
+    """
+    Safely parse metadata from database to dict.
+
+    Args:
+        metadata: Metadata from database (can be dict, str, or None)
+
+    Returns:
+        Dict with metadata
+    """
+    if metadata is None:
+        return {}
+    if isinstance(metadata, dict):
+        return metadata
+    if isinstance(metadata, str):
+        try:
+            return json.loads(metadata)
+        except json.JSONDecodeError:
+            return {}
+    return {}
 
 
 # ============================================================================
@@ -52,7 +74,7 @@ async def get_session_messages(
                 session_id=str(row["session_id"]),
                 role=row["role"],
                 content=row["content"],
-                metadata=row["metadata"] or {},
+                metadata=parse_metadata(row["metadata"]),
                 created_at=row["created_at"]
             )
             for row in rows
@@ -122,7 +144,7 @@ async def add_message(
             session_id=str(row["session_id"]),
             role=row["role"],
             content=row["content"],
-            metadata=row["metadata"] or {},
+            metadata=parse_metadata(row["metadata"]),
             created_at=row["created_at"]
         )
 

@@ -512,11 +512,18 @@ export default function WorkspacePage() {
                         <div
                           className={`max-w-[75%] rounded-2xl px-4 py-2 ${
                             msg.role === 'user'
-                              ? 'bg-primary text-primary-foreground rounded-br-sm'
+                              ? 'bg-blue-300/50 text-slate-700 rounded-br-sm'
                               : 'bg-muted text-foreground rounded-bl-sm'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          {msg.role === 'assistant' ? (
+                            <div
+                              className="prose prose-sm dark:prose-invert max-w-none"
+                              dangerouslySetInnerHTML={{ __html: msg.content }}
+                            />
+                          ) : (
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                          )}
                         </div>
                       </div>
                     ))}

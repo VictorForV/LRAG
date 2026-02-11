@@ -1,10 +1,11 @@
 """Document management routes with file upload support."""
 
+import json
 import logging
 import os
 import tempfile
 import hashlib
-from typing import List
+from typing import List, Dict, Any
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 
@@ -22,6 +23,28 @@ router = APIRouter(prefix="/api", tags=["documents"])
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+def parse_metadata(metadata: Any) -> Dict[str, Any]:
+    """
+    Safely parse metadata from database to dict.
+
+    Args:
+        metadata: Metadata from database (can be dict, str, or None)
+
+    Returns:
+        Dict with metadata
+    """
+    if metadata is None:
+        return {}
+    if isinstance(metadata, dict):
+        return metadata
+    if isinstance(metadata, str):
+        try:
+            return json.loads(metadata)
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
 
 def calculate_file_hash(file_path: str) -> str:
     """
@@ -79,7 +102,7 @@ async def get_project_documents(
                 title=row["title"],
                 source=row["source"],
                 uri=row["uri"],
-                metadata=row["metadata"] or {},
+                metadata=parse_metadata(row["metadata"]),
                 project_id=str(row["project_id"]) if row["project_id"] else None,
                 first_ingested=row["first_ingested"],
                 last_ingested=row["last_ingested"],
@@ -140,7 +163,7 @@ async def get_document(
             title=row["title"],
             source=row["source"],
             uri=row["uri"],
-            metadata=row["metadata"] or {},
+            metadata=parse_metadata(row["metadata"]),
             project_id=str(row["project_id"]) if row["project_id"] else None,
             first_ingested=row["first_ingested"],
             last_ingested=row["last_ingested"],
