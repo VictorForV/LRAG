@@ -315,7 +315,7 @@ export default function WorkspacePage() {
         <div className="flex-1 overflow-y-auto px-2">
           <div className="text-xs text-muted-foreground px-2 mb-2">CHAT SESSIONS</div>
           {sessions.map((session) => (
-            <div className={`group flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer hover:bg-accent mb-1 ${currentSession?.id === session.id ? 'bg-accent' : ''}`}>
+            <div key={session.id} className={`group flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer hover:bg-accent mb-1 ${currentSession?.id === session.id ? 'bg-accent' : ''}`}>
               {editingSessionId === session.id ? (
                 <div className="flex-1 flex gap-1">
                   <Input
@@ -405,7 +405,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col">
           {/* Error Display */}
           {error && (
             <div className="mx-4 mt-4 p-4 bg-destructive/10 border border-destructive text-destructive rounded-md flex items-start gap-2">
@@ -455,32 +455,32 @@ export default function WorkspacePage() {
                         </div>
                       )}
                     </div>
+                  </div>
 
-                    {/* Input */}
-                    <div className="border-t bg-card p-4">
-                      <div className="max-w-4xl mx-auto">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm text-muted-foreground">Tokens: {tokenCount.toLocaleString()}</span>
-                          {tokenPercent > 80 && <span className="text-xs text-destructive">({tokenPercent}% of limit)</span>}
-                        </div>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Ask about your documents..."
-                            value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                sendMessage();
-                              }
-                            }}
-                            disabled={sendingMessage}
-                            className="flex-1"
-                          />
-                          <Button variant="primary" onClick={sendMessage} disabled={sendingMessage || !inputMessage.trim()}>
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        </div>
+                  {/* Input */}
+                  <div className="border-t bg-card p-4">
+                    <div className="max-w-4xl mx-auto">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm text-muted-foreground">Tokens: {tokenCount.toLocaleString()}</span>
+                        {tokenPercent > 80 && <span className="text-xs text-destructive">({tokenPercent}% of limit)</span>}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Ask about your documents..."
+                          value={inputMessage}
+                          onChange={(e) => setInputMessage(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              sendMessage();
+                            }
+                          }}
+                          disabled={sendingMessage}
+                          className="flex-1"
+                        />
+                        <Button variant="primary" onClick={sendMessage} disabled={sendingMessage || !inputMessage.trim()}>
+                          <Send className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
