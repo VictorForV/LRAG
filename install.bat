@@ -126,7 +126,18 @@ if not exist postgres\bin\psql.exe (
     echo [3/3] Initializing database...
     postgres\bin\initdb.exe -D postgres\data -U postgres -A trust -E utf8 --locale=C
 
-    echo [OK] PostgreSQL ustanovlen
+    echo [*] Starting PostgreSQL temporarily to create database...
+    postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
+    timeout /t 2 /nobreak >nul
+
+    echo [*] Creating database...
+    postgres\bin\psql.exe -U postgres -c "CREATE DATABASE rag_kb;"
+    postgres\bin\psql.exe -U postgres -d rag_kb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+    echo [*] Stopping PostgreSQL...
+    postgres\bin\pg_ctl.exe -D postgres\data stop
+
+    echo [OK] PostgreSQL initialized and database created
 ) else (
     echo [OK] PostgreSQL uzhe ustanovlen
 )
