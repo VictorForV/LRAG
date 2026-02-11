@@ -160,19 +160,19 @@ if not exist postgres\bin\psql.exe (
         exit /b 1
     )
 
-    echo [*] Using: %INITDB%
-    "%INITDB%" -D postgres\data -U postgres -A trust -E utf8 --locale=C
+    echo [*] Using: !INITDB!
+    "!INITDB!" -D postgres\data -U postgres -A trust -E utf8 --locale=C
 
     echo [*] Starting PostgreSQL temporarily to create database...
-    "%PGCTL%" -D postgres\data -l postgres\log.txt start
+    "!PGCTL!" -D postgres\data -l postgres\log.txt start
     timeout /t 2 /nobreak >nul
 
     echo [*] Creating database...
-    "%PSQL%" -U postgres -c "CREATE DATABASE rag_kb;"
-    "%PSQL%" -U postgres -d rag_kb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+    "!PSQL!" -U postgres -c "CREATE DATABASE rag_kb;"
+    "!PSQL!" -U postgres -d rag_kb -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
     echo [*] Stopping PostgreSQL...
-    "%PGCTL%" -D postgres\data stop
+    "!PGCTL!" -D postgres\data stop
 
     echo [OK] PostgreSQL initialized and database created
 ) else (
