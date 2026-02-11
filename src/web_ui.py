@@ -74,108 +74,387 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
-# === CUSTOM CSS FOR RICH CHAT ===
+# === CONTAINER STYLES FOR MAX WIDTH ===
 st.markdown("""
 <style>
-/* Hide Streamlit header and menu */
-.stApp header {visibility: hidden;}
-.stApp header {padding: 0;}
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-.stHeader {display: none;}
+/* Limit main content width for better readability */
+.stApp main {
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+}
 
-/* Hide deploy button */
-.stDeployButton {display: none;}
+/* Remove excessive padding */
+.stApp > div {
+    padding-top: 1rem;
+}
 
-/* Add padding since header is hidden */
-.stApp main {padding-top: 1rem;}
+.block-container {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    max-width: 1200px !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
-/* Chat message styles */
-.chat-message-user {
-    background-color: #e3f2fd;
+# === THEME SELECTION ===
+def get_theme_colors() -> dict:
+    """Get current theme colors based on user preference."""
+    if "theme_mode" not in st.session_state:
+        st.session_state.theme_mode = "light"
+
+    is_dark = st.session_state.theme_mode == "dark"
+
+    if is_dark:
+        return {
+            "bg_primary": "#0f1419",
+            "bg_secondary": "#1a1f2e",
+            "bg_card": "#1e2433",
+            "bg_hover": "#2a3142",
+            "text_primary": "#e2e8f0",
+            "text_secondary": "#94a3b8",
+            "accent": "#6366f1",
+            "accent_hover": "#818cf8",
+            "success": "#10b981",
+            "warning": "#f59e0b",
+            "error": "#ef4444",
+            "border": "#2d3748",
+            "shadow": "0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2)",
+            "chat_user": "#1e3a5f",
+            "chat_assistant": "#1e2433",
+        }
+    else:
+        return {
+            "bg_primary": "#f8fafc",
+            "bg_secondary": "#ffffff",
+            "bg_card": "#ffffff",
+            "bg_hover": "#f1f5f9",
+            "text_primary": "#1e293b",
+            "text_secondary": "#64748b",
+            "accent": "#6366f1",
+            "accent_hover": "#4f46e5",
+            "success": "#10b981",
+            "warning": "#f59e0b",
+            "error": "#ef4444",
+            "border": "#e2e8f0",
+            "shadow": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+            "chat_user": "#e0e7ff",
+            "chat_assistant": "#f8fafc",
+        }
+
+colors = get_theme_colors()
+
+
+# === CUSTOM CSS FOR MODERN UI ===
+st.markdown(f"""
+<style>
+/* === RESET & BASE STYLES === */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.stApp {{
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}}
+
+/* Hide Streamlit default elements */
+.stApp header {{visibility: hidden;}}
+.stApp header {{padding: 0;}}
+#MainMenu {{visibility: hidden;}}
+footer {{visibility: hidden;}}
+.stHeader {{display: none;}}
+.stDeployButton {{display: none;}}
+
+/* === MAIN CONTAINER STYLES === */
+.stApp main {{
+    padding-top: 1rem;
+    background-color: {colors['bg_primary']};
+}}
+
+/* === SIDEBAR STYLES === */
+.css-1d391kg {{
+    background: {colors['bg_secondary']} !important;
+}}
+
+.css-1d391kg .css-18ni7ap {{
+    background-color: {colors['bg_hover']};
     border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 10px;
+}}
+
+/* Remove all top padding/margin from sidebar and children */
+[data-testid="stSidebar"] > div,
+[data-testid="stSidebar"] > div > div,
+[data-testid="stSidebar"] section,
+[data-testid="stSidebar"] > div > div > div {{
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}}
+
+/* Remove top spacing from sidebar elements */
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] .stButton,
+[data-testid="stSidebar"] hr {{
+    margin-top: 0 !important;
+}}
+
+/* === BUTTON STYLES === */
+.stButton > button {{
+    border-radius: 8px !important;
+    border: none !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+    box-shadow: {colors['shadow']} !important;
+}}
+
+.stButton > button:hover {{
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
+}}
+
+.stButton > button[kind="primary"] {{
+    background: linear-gradient(135deg, {colors['accent']} 0%, {colors['accent_hover']} 100%) !important;
+    color: white !important;
+}}
+
+.stButton > button[kind="primary"]:hover {{
+    background: linear-gradient(135deg, {colors['accent_hover']} 0%, {colors['accent']} 100%) !important;
+}}
+
+/* === INPUT STYLES === */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div > select {{
+    border-radius: 8px !important;
+    border: 1px solid {colors['border']} !important;
+    background-color: {colors['bg_card']} !important;
+    color: {colors['text_primary']} !important;
+    padding: 0.6rem 1rem !important;
+    transition: all 0.2s ease !important;
+}}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {{
+    border-color: {colors['accent']} !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+    outline: none !important;
+}}
+
+/* === CHAT MESSAGE STYLES === */
+.chat-message-user {{
+    background: linear-gradient(135deg, {colors['chat_user']} 0%, #c7d2fe 100%);
+    border-radius: 16px 16px 4px 16px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
     margin-left: auto;
     margin-right: 0;
-    max-width: 80%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
+    max-width: 75%;
+    box-shadow: {colors['shadow']};
+    animation: slideInRight 0.3s ease;
+}}
 
-.chat-message-assistant {
-    background-color: #f5f5f5;
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 10px;
+.chat-message-assistant {{
+    background-color: {colors['chat_assistant']};
+    border: 1px solid {colors['border']};
+    border-radius: 16px 16px 16px 4px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
     margin-left: 0;
     margin-right: auto;
-    max-width: 80%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
+    max-width: 75%;
+    box-shadow: {colors['shadow']};
+    animation: slideInLeft 0.3s ease;
+}}
 
-/* HTML content styling */
-.chat-message-assistant table {
+@keyframes slideInRight {{
+    from {{
+        opacity: 0;
+        transform: translateX(20px);
+    }}
+    to {{
+        opacity: 1;
+        transform: translateX(0);
+    }}
+}}
+
+@keyframes slideInLeft {{
+    from {{
+        opacity: 0;
+        transform: translateX(-20px);
+    }}
+    to {{
+        opacity: 1;
+        transform: translateX(0);
+    }}
+}}
+
+/* === HTML CONTENT STYLING === */
+.chat-message-assistant table {{
     border-collapse: collapse;
     width: 100%;
-    margin: 10px 0;
-}
+    margin: 12px 0;
+    border-radius: 8px;
+    overflow: hidden;
+}}
 
 .chat-message-assistant th,
-.chat-message-assistant td {
-    border: 1px solid #ddd;
-    padding: 8px;
+.chat-message-assistant td {{
+    border: 1px solid {colors['border']};
+    padding: 10px 12px;
     text-align: left;
-}
+}}
 
-.chat-message-assistant th {
-    background-color: #f0f0f0;
-    font-weight: bold;
-}
+.chat-message-assistant th {{
+    background: linear-gradient(135deg, {colors['bg_hover']} 0%, {colors['bg_secondary']} 100%);
+    font-weight: 600;
+    color: {colors['text_primary']};
+}}
 
-.chat-message-assistant pre {
-    background-color: #f8f8f8;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 10px;
+.chat-message-assistant pre {{
+    background-color: {colors['bg_secondary']};
+    border: 1px solid {colors['border']};
+    border-radius: 8px;
+    padding: 14px;
     overflow-x: auto;
-}
+    margin: 12px 0;
+}}
 
-.chat-message-assistant code {
-    background-color: #f0f0f0;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-family: monospace;
-}
+.chat-message-assistant code {{
+    background-color: {colors['bg_hover']};
+    color: {colors['accent']};
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.9em;
+}}
 
 .chat-message-assistant ul,
-.chat-message-assistant ol {
+.chat-message-assistant ol {{
     margin: 10px 0;
-    padding-left: 20px;
-}
+    padding-left: 24px;
+}}
 
-.chat-message-assistant li {
-    margin: 5px 0;
-}
+.chat-message-assistant li {{
+    margin: 6px 0;
+    line-height: 1.6;
+}}
 
-/* Project card styles */
-.project-card {
-    border: 1px solid #ddd;
+/* === METRIC CARD STYLES === -->
+.stMetric {{
+    background-color: {colors['bg_card']};
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid {colors['border']};
+    box-shadow: {colors['shadow']};
+    transition: all 0.2s ease;
+}}
+
+.stMetric:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}}
+
+/* === EXPANDER STYLES === */
+.streamlit-expanderHeader {{
+    background-color: {colors['bg_card']} !important;
+    border-radius: 12px !important;
+    border: 1px solid {colors['border']} !important;
+    padding: 12px 16px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+}}
+
+.streamlit-expanderHeader:hover {{
+    background-color: {colors['bg_hover']} !important;
+}}
+
+/* === TAB STYLES === */
+.stTabs [data-baseweb="tab-list"] {{
+    gap: 8px;
+    background-color: {colors['bg_card']};
+    border-radius: 12px;
+    padding: 6px;
+    border: 1px solid {colors['border']};
+}}
+
+.stTabs [data-baseweb="tab"] {{
     border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 10px;
-    background-color: white;
-}
+    padding: 10px 20px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}}
 
-/* Upload area styling */
-.upload-area {
-    border: 2px dashed #ccc;
-    border-radius: 8px;
-    padding: 30px;
+.stTabs [aria-selected="true"] {{
+    background: linear-gradient(135deg, {colors['accent']} 0%, {colors['accent_hover']} 100%);
+    color: white !important;
+}}
+
+/* === FILE UPLOADER STYLES === */
+.stFileUploader {{
+    border: 2px dashed {colors['accent']} !important;
+    border-radius: 16px !important;
+    background: linear-gradient(135deg, {colors['bg_secondary']} 0%, {colors['bg_hover']} 100%);
+    padding: 40px;
     text-align: center;
-    background-color: #f9f9f9;
-    margin: 20px 0;
-}
+    transition: all 0.3s ease;
+}}
+
+.stFileUploader:hover {{
+    border-color: {colors['accent_hover']} !important;
+    background: linear-gradient(135deg, {colors['bg_hover']} 0%, {colors['bg_secondary']} 100%);
+    transform: scale(1.01);
+}}
+
+/* === DIVIDER STYLES === */
+.stDivider {{
+    border-color: {colors['border']};
+    opacity: 0.5;
+}}
+
+/* === INFO/SUCCESS/WARNING/ERROR BOXES === */
+.stAlert {{
+    border-radius: 12px;
+    border: none;
+    box-shadow: {colors['shadow']};
+    padding: 16px 20px;
+}}
+
+/* === SPINNER STYLES === */
+.stSpinner {{
+    border-color: {colors['accent']} !important;
+    border-top-color: transparent !important;
+}}
+
+/* === CHAT INPUT STYLES === */
+.stChatInputContainer {{
+    border-radius: 24px;
+    border: 2px solid {colors['border']};
+    background-color: {colors['bg_card']};
+    padding: 8px 16px;
+    transition: all 0.2s ease;
+}}
+
+.stChatInputContainer:focus-within {{
+    border-color: {colors['accent']};
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}}
+
+/* === SCROLLBAR STYLES === */
+::-webkit-scrollbar {{
+    width: 8px;
+    height: 8px;
+}}
+
+::-webkit-scrollbar-track {{
+    background: {colors['bg_secondary']};
+    border-radius: 4px;
+}}
+
+::-webkit-scrollbar-thumb {{
+    background: {colors['border']};
+    border-radius: 4px;
+}}
+
+::-webkit-scrollbar-thumb:hover {{
+    background: {colors['accent']};
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -274,18 +553,27 @@ def render_projects_page(settings: Settings) -> None:
     Args:
         settings: Application settings
     """
-    st.title("📁 Ваши проекты")
-
-    # Top bar with search and new project button
-    col1, col2, col3 = st.columns([3, 1, 1])
+    # Header row
+    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     with col1:
-        search = st.text_input("🔍 Поиск проектов...", placeholder="Поиск по названию или описанию")
+        st.markdown("### 📁 Ваши проекты")
     with col2:
-        if st.button("+ Новый проект", use_container_width=True, type="primary"):
+        if st.button("+ Новый", use_container_width=True, type="primary"):
             st.session_state.show_new_project_dialog = True
     with col3:
-        if st.button("🔄 Обновить", use_container_width=True):
+        if st.button("🔄", use_container_width=True, help="Обновить"):
             st.rerun()
+    with col4:
+        current_theme = st.session_state.get("theme_mode", "light")
+        theme_icon = "🌙" if current_theme == "light" else "☀️"
+        if st.button(theme_icon, use_container_width=True, key="theme_projects", help="Переключить тему"):
+            st.session_state.theme_mode = "dark" if current_theme == "light" else "light"
+            st.rerun()
+
+    # Search bar
+    search = st.text_input("🔍", placeholder="Поиск по названию или описанию...", label_visibility="collapsed")
+
+    st.write("")  # Small spacer
 
     # New project dialog
     if st.session_state.get("show_new_project_dialog", False):
@@ -343,56 +631,47 @@ def render_projects_page(settings: Settings) -> None:
             return
 
         # Display project count
-        st.caption(f"📊 {len(projects)} проектов")
+        st.caption(f"📊 {len(projects)} {'проект' if len(projects) == 1 else 'проекта' if len(projects) < 5 else 'проектов'}")
 
-        # Project cards
+        # Project cards as list
         for project in projects:
+            # Use panel-like container with st.container
             with st.container():
-                col1, col2, col3, col4, col5 = st.columns([4, 1, 1, 1, 1])
+                col1, col2, col3, col4, col5, col6 = st.columns([4, 1, 1, 1.2, 0.8, 0.8])
 
                 with col1:
-                    st.markdown(f"### 📂 {project['name']}")
+                    st.markdown(f"**📂 {project['name']}**")
                     if project['description']:
                         st.caption(project['description'])
-                    st.caption(f"Создан: {project['created_at'].strftime('%Y-%m-%d')}")
+                    st.caption(f"🕒 {project['created_at'].strftime('%d %b %Y')}")
 
                 with col2:
-                    st.metric("Документов", project['doc_count'])
+                    st.metric("📄", project['doc_count'], help="Документов")
 
                 with col3:
-                    st.metric("Чатов", project['session_count'])
+                    st.metric("💬", project['session_count'], help="Чатов")
 
                 with col4:
-                    if st.button("Открыть", key=f"open_{project['id']}", use_container_width=True):
+                    if st.button("Открыть", key=f"open_{project['id']}", use_container_width=True, type="primary"):
                         st.session_state.current_project = project
                         st.session_state.current_page = "workspace"
                         st.rerun()
 
                 with col5:
-                    # Меню с тремя точками
-                    menu_key = f"menu_{project['id']}"
-                    if menu_key not in st.session_state:
-                        st.session_state[menu_key] = False
+                    if st.button("✏️", key=f"edit_{project['id']}", use_container_width=True, help="Редактировать"):
+                        st.session_state.show_edit_project = project
+                        st.rerun()
 
-                    if st.button("⋮", key=f"dots_{project['id']}", help="Меню"):
-                        st.session_state[menu_key] = not st.session_state[menu_key]
-
-                    if st.session_state[menu_key]:
-                        if st.button("Редактировать", key=f"edit_{project['id']}", use_container_width=True):
-                            st.session_state.show_edit_project = project
-                            st.session_state[menu_key] = False
+                with col6:
+                    if st.button("🗑️", key=f"del_{project['id']}", use_container_width=True, help="Удалить"):
+                        try:
+                            sync_delete_project(settings.database_url, project['id'])
+                            st.success(f"✅ Проект '{project['name']}' удалён")
                             st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Не удалось удалить: {e}")
 
-                        if st.button("Удалить", key=f"del_{project['id']}", use_container_width=True):
-                            try:
-                                sync_delete_project(settings.database_url, project['id'])
-                                st.success(f"✅ Проект '{project['name']}' удалён")
-                                st.session_state[menu_key] = False
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"❌ Не удалось удалить: {e}")
-
-                st.divider()
+                st.markdown("---")
 
     except Exception as e:
         st.error(f"❌ Ошибка загрузки проектов: {e}")
@@ -414,14 +693,14 @@ def render_project_workspace(settings: Settings) -> None:
 
     # Sidebar with project info and sessions
     with st.sidebar:
-        st.markdown(f"### 📂 {project['name']}")
+        # Compact header with no extra spacing
+        st.markdown(f"**📂 {project['name']}**")
         if project.get('description'):
             st.caption(project['description'])
 
-        st.divider()
+        st.markdown("<br style='line-height: 8px;'>", unsafe_allow_html=True)
 
         # Sessions list
-        st.subheader("💬 Чаты")
         try:
             sessions = sync_list_sessions(settings.database_url, project['id'])
             logger.info(f"Loaded {len(sessions)} sessions for project {project['id']}")
@@ -456,13 +735,17 @@ def render_project_workspace(settings: Settings) -> None:
                     current_session_id = st.session_state.current_session.get('id') if st.session_state.current_session else None
                     is_active = current_session_id == session_id
 
+                    # Truncate title like ChatGPT
+                    max_title_length = 30
+                    display_title = session_title[:max_title_length] + "..." if len(session_title) > max_title_length else session_title
+
                     # Two columns: session name and delete button
                     col1, col2 = st.columns([5, 1])
 
                     with col1:
-                        # Build label safely - temporarily without message count
+                        # Build label with truncated title
                         icon = "💬 " if is_active else ""
-                        label = f"{icon}{session_title}"
+                        label = f"{icon}{display_title}"
 
                         if st.button(
                             label,
@@ -1073,10 +1356,10 @@ def main():
     settings = st.session_state.app_settings
     logger.info(f"Settings valid: {settings is not None}")
 
-    # === TOP BAR WITH SETTINGS BUTTON ===
+    # === TOP BAR WITH TITLE & SETTINGS ===
     col1, col2 = st.columns([5, 1])
     with col1:
-        st.title("📚 База знаний RAG")
+        st.markdown("### 📚 База знаний RAG")
     with col2:
         if st.button("⚙️", help="Настройки", use_container_width=True):
             st.session_state.show_settings = True

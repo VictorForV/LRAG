@@ -6,7 +6,8 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# dist/ commented out - we commit frontend/dist/ for portable builds
+# dist/
 downloads/
 eggs/
 .eggs/
