@@ -121,21 +121,23 @@ if not exist postgres\bin\psql.exe (
 
     echo [*] Copying extracted files to postgres folder...
 
-    REM Copy pgsql folder (contains share, lib, and bin subfolders)
-    if exist "postgres_temp\pgsql" (
+    REM Check structure: either direct pgsql or inside postgresql-xxxx folder
+    if exist "postgres_temp\pgsql\bin\initdb.exe" (
+        echo [FOUND] Direct pgsql folder
         xcopy "postgres_temp\pgsql" "postgres\pgsql" /E /I /H /Y /S
-        echo [OK] Copied pgsql folder
+    ) else if exist "postgres_temp\postgresql-16.1-1-windows-x64-full\pgsql\bin\initdb.exe" (
+        echo [FOUND] pgsql inside postgresql-16.1-1-windows-x64-full
+        xcopy "postgres_temp\postgresql-16.1-1-windows-x64-full\pgsql" "postgres\pgsql" /E /I /H /Y /S
     ) else (
         echo [ERROR] pgsql folder not found in archive!
-        dir /b postgres_temp
+        echo.
+        echo Contents of postgres_temp:
+        dir /b /s postgres_temp | findstr /i "initdb.exe"
         pause
         exit /b 1
     )
 
-    REM Copy remaining root files (excluding already copied pgsql)
-    xcopy "postgres_temp\*" "postgres\" /E /I /H /Y /S /EXCLUDE:pgsql\ 2>nul
-
-    REM Cleanup
+    echo [OK] Copied pgsql folder
     rmdir /s /q "postgres_temp"
 
     :init_db
