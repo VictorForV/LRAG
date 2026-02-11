@@ -294,19 +294,13 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen overflow-hidden bg-background flex">
       {/* Sidebar */}
-      <aside
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-0'
-        } border-r bg-card transition-all duration-300 overflow-hidden flex flex-col`}
-      >
+      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} border-r bg-card transition-all duration-300 overflow-hidden flex flex-col`}>
         {/* Header */}
         <div className="p-4 border-b">
           <h2 className="font-semibold text-lg truncate">{project.name}</h2>
-          {project.description && (
-            <p className="text-sm text-muted-foreground truncate">{project.description}</p>
-          )}
+          {project.description && <p className="text-sm text-muted-foreground truncate">{project.description}</p>}
         </div>
 
         {/* New Chat Button */}
@@ -321,12 +315,7 @@ export default function WorkspacePage() {
         <div className="flex-1 overflow-y-auto px-2">
           <div className="text-xs text-muted-foreground px-2 mb-2">CHAT SESSIONS</div>
           {sessions.map((session) => (
-            <div
-              key={session.id}
-              className={`group flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer hover:bg-accent mb-1 ${
-                currentSession?.id === session.id ? 'bg-accent' : ''
-              }`}
-            >
+            <div className={`group flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer hover:bg-accent mb-1 ${currentSession?.id === session.id ? 'bg-accent' : ''}`}>
               {editingSessionId === session.id ? (
                 <div className="flex-1 flex gap-1">
                   <Input
@@ -342,50 +331,24 @@ export default function WorkspacePage() {
                       }
                     }}
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => saveSessionTitle(session.id, editingSessionTitle)}
-                  >
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => saveSessionTitle(session.id, editingSessionTitle)}>
                     <Check className="h-3 w-3" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => setEditingSessionId(null)}
-                  >
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingSessionId(null)}>
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
               ) : (
                 <>
                   <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <div
-                    className="flex-1 min-w-0 truncate text-sm"
-                    onClick={() => selectSession(session)}
-                  >
+                  <div className="flex-1 min-w-0 truncate text-sm" onClick={() => selectSession(session)}>
                     {session.title}
                   </div>
                   <div className="hidden group-hover:flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => {
-                        setEditingSessionId(session.id);
-                        setEditingSessionTitle(session.title);
-                      }}
-                    >
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditingSessionId(session.id); setEditingSessionTitle(session.title); }}>
                       <Edit2 className="h-3 w-3" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => deleteSession(session.id)}
-                    >
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => deleteSession(session.id)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -397,35 +360,29 @@ export default function WorkspacePage() {
 
         {/* Footer */}
         <div className="p-4 border-t">
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => navigate('/')}
-          >
+          <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Projects
           </Button>
         </div>
-      </aside>
+      </div>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
         <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              <MenuIcon />
+            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" x2="20" y1="12" y2="12" />
+                <line x1="4" x2="20" y1="6" y2="6" />
+                <line x1="4" x2="20" y1="18" y2="18" />
+              </svg>
             </Button>
             <h1 className="font-semibold">{project.name}</h1>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              {documents.length} docs
-            </div>
+            <div className="text-sm text-muted-foreground">{documents.length} docs</div>
             <Button variant="ghost" size="sm" onClick={toggleTheme}>
               {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
@@ -435,34 +392,13 @@ export default function WorkspacePage() {
         {/* Tabs */}
         <div className="border-b bg-card">
           <div className="flex">
-            <button
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'chat'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => setActiveTab('chat')}
-            >
+            <button className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'chat' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`} onClick={() => setActiveTab('chat')}>
               Chat
             </button>
-            <button
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'documents'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => setActiveTab('documents')}
-            >
+            <button className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`} onClick={() => setActiveTab('documents')}>
               Documents
             </button>
-            <button
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'upload'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => setActiveTab('upload')}
-            >
+            <button className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'upload' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`} onClick={() => setActiveTab('upload')}>
               Upload
             </button>
           </div>
@@ -475,25 +411,20 @@ export default function WorkspacePage() {
             <div className="mx-4 mt-4 p-4 bg-destructive/10 border border-destructive text-destructive rounded-md flex items-start gap-2">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <span>{error}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto h-6 w-6 p-0"
-                onClick={() => setError(null)}
-              >
+              <Button variant="ghost" size="sm" className="ml-auto h-6 w-6 p-0" onClick={() => setError(null)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           )}
 
           {activeTab === 'chat' && (
-            <div className="h-full flex flex-col">
+            <div className="flex-1 flex flex-col overflow-hidden">
               {!currentSession ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
                     <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <h3 className="text-lg font-semibold mb-2">No Chat Selected</h3>
-                    <p className="text-muted-foreground mb-4">Create a new chat or select one from the sidebar</p>
+                    <p className="text-muted-foreground mb-4">Create a new chat or select one from sidebar</p>
                     <Button variant="primary" onClick={createSession}>
                       <Plus className="h-4 w-4 mr-2" />
                       New Chat
@@ -501,129 +432,107 @@ export default function WorkspacePage() {
                   </div>
                 </div>
               ) : (
-                <>
+                <div className="flex-1 flex flex-col overflow-hidden">
                   {/* Messages */}
-                  <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-                    {messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                            msg.role === 'user'
-                              ? 'bg-blue-300/50 text-slate-700 rounded-br-sm'
-                              : 'bg-muted text-foreground rounded-bl-sm'
-                          }`}
-                        >
-                          {msg.role === 'assistant' ? (
-                            <div
-                              className="prose prose-sm dark:prose-invert max-w-none"
-                              dangerouslySetInnerHTML={{ __html: msg.content }}
-                            />
-                          ) : (
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
-                          )}
+                  <div className="flex-1 overflow-y-auto px-4 py-6">
+                    <div className="max-w-4xl mx-auto space-y-4">
+                      {messages.map((msg) => (
+                        <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${msg.role === 'user' ? 'bg-blue-300/50 text-slate-700 rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm'}`}>
+                            {msg.role === 'assistant' ? (
+                              <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: msg.content }} />
+                            ) : (
+                              <p className="whitespace-pre-wrap">{msg.content}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    {sendingMessage && (
-                      <div className="flex justify-start">
-                        <div className="bg-muted text-foreground rounded-2xl rounded-bl-sm px-4 py-2">
-                          <p className="text-muted-foreground">Thinking...</p>
+                      ))}
+                      {sendingMessage && (
+                        <div className="flex justify-start">
+                          <div className="bg-muted text-foreground rounded-2xl rounded-bl-sm px-4 py-2">
+                            <p className="text-muted-foreground">Thinking...</p>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Input */}
-                  <div className="border-t bg-card p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm text-muted-foreground">Tokens: {tokenCount.toLocaleString()}</span>
-                      {tokenPercent > 80 && (
-                        <span className="text-xs text-destructive">
-                          ({tokenPercent}% of limit)
-                        </span>
                       )}
                     </div>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Ask about your documents..."
-                        value={inputMessage}
-                        onChange={(e) => setInputMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMessage();
-                          }
-                        }}
-                        disabled={sendingMessage}
-                        className="flex-1"
-                      />
-                      <Button
-                        variant="primary"
-                        onClick={sendMessage}
-                        disabled={sendingMessage || !inputMessage.trim()}
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
+
+                    {/* Input */}
+                    <div className="border-t bg-card p-4">
+                      <div className="max-w-4xl mx-auto">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm text-muted-foreground">Tokens: {tokenCount.toLocaleString()}</span>
+                          {tokenPercent > 80 && <span className="text-xs text-destructive">({tokenPercent}% of limit)</span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Ask about your documents..."
+                            value={inputMessage}
+                            onChange={(e) => setInputMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                sendMessage();
+                              }
+                            }}
+                            disabled={sendingMessage}
+                            className="flex-1"
+                          />
+                          <Button variant="primary" onClick={sendMessage} disabled={sendingMessage || !inputMessage.trim()}>
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
           )}
 
           {activeTab === 'documents' && (
-            <div className="h-full overflow-y-auto px-4 py-6">
-              {documents.length === 0 ? (
-                <div className="text-center text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-4" />
-                  <p>No documents uploaded yet</p>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {documents.map((doc) => (
-                    <Card key={doc.id}>
-                      <CardHeader>
-                        <CardTitle className="text-base">{doc.title}</CardTitle>
-                        <CardDescription>{doc.source}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>{doc.chunk_count || 0} chunks</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteDocument(doc.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <div className="max-w-4xl mx-auto">
+                {documents.length === 0 ? (
+                  <div className="text-center text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4" />
+                    <p>No documents uploaded yet</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {documents.map((doc) => (
+                      <Card key={doc.id}>
+                        <CardHeader>
+                          <CardTitle className="text-base">{doc.title}</CardTitle>
+                          <CardDescription>{doc.source}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between text-sm text-muted-foreground">
+                            <span>{doc.chunk_count || 0} chunks</span>
+                            <Button variant="ghost" size="sm" onClick={() => deleteDocument(doc.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {activeTab === 'upload' && (
-            <div className="h-full overflow-y-auto px-4 py-6">
-              <div className="max-w-2xl mx-auto">
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <div className="max-w-4xl mx-auto">
                 <Card>
                   <CardHeader>
                     <CardTitle>Upload Documents</CardTitle>
-                    <CardDescription>
-                      Upload PDF, DOCX, TXT, MD, images, or audio files
-                    </CardDescription>
+                    <CardDescription>Upload PDF, DOCX, TXT, MD, images, or audio files</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="border-2 border-dashed rounded-lg p-8 text-center">
                       <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Drag files here or click to select
-                      </p>
+                      <p className="text-sm text-muted-foreground mb-4">Drag files here or click to select</p>
                       <input
                         type="file"
                         multiple
@@ -646,16 +555,9 @@ export default function WorkspacePage() {
                       <div className="space-y-2">
                         <h4 className="font-semibold text-sm">Upload Results</h4>
                         {uploadResults.map((result, idx) => (
-                          <div
-                            key={idx}
-                            className={`flex items-center justify-between p-2 rounded ${
-                              result.success ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950'
-                            }`}
-                          >
+                          <div key={idx} className={`flex items-center justify-between p-2 rounded ${result.success ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950'}`}>
                             <span className="text-sm truncate">{result.filename}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {result.success ? `${result.chunks} chunks` : result.error}
-                            </span>
+                            <span className="text-xs text-muted-foreground">{result.success ? `${result.chunks} chunks` : result.error}</span>
                           </div>
                         ))}
                       </div>
@@ -666,18 +568,7 @@ export default function WorkspacePage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
-  );
-}
-
-// Helper component for menu icon
-function MenuIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="4" x2="20" y1="12" y2="12" />
-      <line x1="4" x2="20" y1="6" y2="6" />
-      <line x1="4" x2="20" y1="18" y2="18" />
-    </svg>
   );
 }

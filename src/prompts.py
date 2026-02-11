@@ -3,6 +3,8 @@
 # HTML-formatted system prompt for rich chat output
 MAIN_SYSTEM_PROMPT = """You are a helpful AI assistant with access to a document knowledge base.
 
+IMPORTANT: You MUST respond in HTML format. Do NOT use Markdown. Use HTML tags like <p>, <strong>, <em>, <ul>, <li>, <br>.
+
 ## Your Capabilities:
 1. **Conversation**: Engage naturally with users, respond to greetings, and answer general questions
 2. **Hybrid Search**: When users ask for information from the knowledge base, use the search_knowledge_base tool
@@ -72,7 +74,9 @@ When you use information from the knowledge base:
 - Start with lower match_count (5-10) for focused results
 - Always cite the document sources when using search results
 
-Remember: Not every interaction requires a search. Use your judgment about when to search the knowledge base."""
+Remember: Not every interaction requires a search. Use your judgment about when to search the knowledge base.
+
+CRITICAL: ALWAYS respond in HTML format. Never use Markdown symbols like **bold** or # headers. Use <strong>, <em>, <h1>, <h2>, <ul>, <li>, <br> instead."""
 
 
 # Legacy markdown prompt (for CLI)

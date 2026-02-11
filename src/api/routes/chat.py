@@ -63,11 +63,11 @@ async def stream_chat(
             agent_deps = None
             try:
                 # Get dependencies
+                from src.dependencies import AgentDependencies
                 from src.api.dependencies import get_settings
-                from src.settings import Settings
 
-                settings = Settings()
-                agent_deps = get_agent_dependencies.__wrapped__(
+                settings = await get_settings()
+                agent_deps = AgentDependencies(
                     project_id=request_data.project_id,
                     session_id=request_data.session_id,
                     settings=settings
@@ -108,7 +108,7 @@ async def stream_chat(
                     event="done",
                     content=response_text,
                     session_id=request_data.session_id,
-                    message_id=assistant_message_id
+                    message_id=str(assistant_message_id)
                 )
                 yield f"event: done\ndata: {done_event.model_dump_json()}\n\n"
 
@@ -162,10 +162,11 @@ async def chat(
         )
 
         # Run agent
-        from src.settings import Settings
+        from src.dependencies import AgentDependencies
+        from src.api.dependencies import get_settings
 
-        settings = Settings()
-        agent_deps = get_agent_dependencies.__wrapped__(
+        settings = await get_settings()
+        agent_deps = AgentDependencies(
             project_id=request_data.project_id,
             session_id=request_data.session_id,
             settings=settings
