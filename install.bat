@@ -170,22 +170,11 @@ if not exist postgres\bin\psql.exe (
     echo [*] Creating database...
     "!PSQL!" -U postgres -c "CREATE DATABASE rag_kb;"
 
-    echo [*] Installing pgvector extension...
-    REM Download precompiled pgvector for Windows PostgreSQL 16
-    if not exist "postgres\pgsql\share\extension\vector.control" (
-        echo [*] Downloading pgvector...
-        curl -L -o "pgvector.zip" "https://github.com/pgvector/pgvector/releases/download/v0.5.0/pgvector-0.5.0-pg16-win64.zip" 2>nul
-        if exist "pgvector.zip" (
-            powershell -Command "Expand-Archive -Path 'pgvector.zip' -DestinationPath 'pgvector_temp' -Force"
-            xcopy "pgvector_temp\*" "postgres\pgsql\" /E /I /H /Y /S
-            rmdir /s /q "pgvector_temp"
-            del "pgvector.zip"
-            echo [OK] pgvector installed
-        ) else (
-            echo [WARNING] pgvector download failed - vector extension NOT available
-        )
-    )
-    "!PSQL!" -U postgres -d rag_kb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+    REM pgvector skipped - requires compilation on Windows
+    REM For vector search, use external embedding API instead
+    echo [*] NOTE: pgvector extension skipped (requires compilation)
+    echo [*] Vector search will use external embeddings API
+    echo.
 
     echo [*] Stopping PostgreSQL...
     "!PGCTL!" -D postgres\data stop
