@@ -92,4 +92,7 @@ echo   Diagnostic complete!
 echo ==================================================
 echo.
 echo Check the output above to see what went wrong.
-pause
+echo.
+echo Press any key to open command prompt for manual testing...
+pause >nul
+cmd /k

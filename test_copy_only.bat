@@ -69,4 +69,7 @@ echo ==================================================
 echo.
 echo If all methods show SUCCESS, the copy works.
 echo If methods show FAIL, check the source folder structure.
-pause
+echo.
+echo Press any key to open command prompt for manual testing...
+pause >nul
+cmd /k
