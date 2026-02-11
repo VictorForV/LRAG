@@ -119,13 +119,52 @@ if not exist postgres\bin\psql.exe (
     powershell -Command "Expand-Archive -Path 'pg_portable.zip' -DestinationPath 'postgres_temp' -Force"
     del pg_portable.zip
 
-    REM Move files to postgres/ folder
+    echo [*] Checking extracted structure...
+    if exist "postgres_temp\pgsql\bin\initdb.exe" (
+        echo [FOUND] Structure: pgsql\bin\ exists
+        goto copy_pgsql
+    )
+    if exist "postgres_temp\bin\initdb.exe" (
+        echo [FOUND] Structure: bin\ exists
+        goto copy_bin
+    )
+    echo [ERROR] Neither pgsql\bin\ nor bin\ found in archive!
+    echo Current structure:
+    dir /b postgres_temp
+    pause
+    exit /b 1
+
+    :copy_pgsql
+    echo [*] Copying pgsql folder...
     xcopy "postgres_temp\pgsql" "postgres\pgsql" /E /I /H /Y /S
     xcopy "postgres_temp\*" "postgres\" /E /I /H /Y /S /EXCLUDE:pgsql\ 2>nul
     rmdir /s /q "postgres_temp"
+    goto init_db
 
+    :copy_bin
+    echo [*] Copying bin folder directly...
+    xcopy "postgres_temp\bin" "postgres\bin" /E /I /H /Y /S
+    xcopy "postgres_temp\*" "postgres\" /E /I /H /Y /S /EXCLUDE:bin 2>nul
+    rmdir /s /q "postgres_temp"
+
+    :init_db
     echo [3/3] Initializing database...
-    postgres\bin\initdb.exe -D postgres\data -U postgres -A trust -E utf8 --locale=C
+
+    REM Check where initdb.exe ended up
+    if exist "postgres\pgsql\bin\initdb.exe" (
+        set "INITDB=postgres\pgsql\bin\initdb.exe"
+    ) else if exist "postgres\bin\initdb.exe" (
+        set "INITDB=postgres\bin\initdb.exe"
+    ) else (
+        echo [ERROR] initdb.exe NOT FOUND after copy!
+        echo Current postgres folder:
+        dir /b postgres
+        pause
+        exit /b 1
+    )
+
+    echo [*] Using: %INITDB%
+    "%INITDB%" -D postgres\data -U postgres -A trust -E utf8 --locale=C
 
     echo [*] Starting PostgreSQL temporarily to create database...
     postgres\bin\pg_ctl.exe -D postgres\data -l postgres\log.txt start
