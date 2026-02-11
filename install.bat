@@ -119,9 +119,10 @@ if not exist postgres\bin\psql.exe (
     powershell -Command "Expand-Archive -Path 'pg_portable.zip' -DestinationPath 'postgres_temp' -Force"
     del pg_portable.zip
 
-    REM Move files to postgres/ folder (/S copies subdirectories)
-    robocopy "postgres_temp" "postgres" /E /IS /IT /NFL /NP /NDL /NJH /NJS
-    if exist postgres_temp rmdir /s /q "postgres_temp"
+    REM Move files to postgres/ folder
+    xcopy "postgres_temp\pgsql" "postgres\pgsql" /E /I /H /Y /S
+    xcopy "postgres_temp\*" "postgres\" /E /I /H /Y /S /EXCLUDE:pgsql\ 2>nul
+    rmdir /s /q "postgres_temp"
 
     echo [3/3] Initializing database...
     postgres\bin\initdb.exe -D postgres\data -U postgres -A trust -E utf8 --locale=C
