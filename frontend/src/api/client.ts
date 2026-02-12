@@ -16,8 +16,8 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  // Enable CORS for development
-  withCredentials: false,
+  // Enable CORS and credentials (cookies) for authentication
+  withCredentials: true,
   timeout: 10000, // 10 second timeout
 });
 

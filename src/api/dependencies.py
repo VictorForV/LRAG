@@ -1,11 +1,13 @@
 """FastAPI dependencies for dependency injection."""
 
-from typing import AsyncGenerator
-from fastapi import Depends, HTTPException, status
+from typing import AsyncGenerator, Optional
+from fastapi import Depends, HTTPException, status, Request
 from pathlib import Path
 
 from src.settings import Settings, load_settings
 from src.dependencies import db_pool_context, AgentDependencies
+from src.api.models.auth import User
+import asyncpg
 
 
 # ============================================================================
@@ -110,3 +112,92 @@ def ensure_uploads_dir() -> Path:
     uploads_dir = Path("uploads")
     uploads_dir.mkdir(exist_ok=True)
     return uploads_dir
+
+
+# ============================================================================
+# AUTHENTICATION DEPENDENCIES
+# ============================================================================
+
+def hashlib_sha256(data: str) -> str:
+    """
+    Calculate SHA256 hash of string.
+
+    Args:
+        data: String to hash
+
+    Returns:
+        Hexadecimal hash string
+    """
+    import hashlib
+    return hashlib.sha256(data.encode()).hexdigest()
+
+
+async def get_current_user(
+    request: Request,
+    pool: asyncpg.Pool = Depends(get_db_pool)
+) -> User:
+    """
+    Dependency to get current authenticated user from session cookie.
+
+    Args:
+        request: FastAPI request
+        pool: Database connection pool
+
+    Returns:
+        Current user
+
+    Raises:
+        HTTPException: If not authenticated
+    """
+    # Get session token from cookie
+    session_token = request.cookies.get("session_token")
+
+    if not session_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    token_hash = hashlib_sha256(session_token)
+
+    # Look up session with user
+    row = await pool.fetchrow(
+        """SELECT u.id, u.username, u.created_at, u.updated_at
+           FROM user_sessions us
+           JOIN users u ON us.user_id = u.id
+           WHERE us.token_hash = $1 AND us.expires_at > NOW()""",
+        token_hash
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session"
+        )
+
+    return User(
+        id=str(row["id"]),
+        username=row["username"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"]
+    )
+
+
+async def get_current_user_optional(
+    request: Request,
+    pool: asyncpg.Pool = Depends(get_db_pool)
+) -> Optional[User]:
+    """
+    Optional version of get_current_user that returns None instead of raising.
+
+    Args:
+        request: FastAPI request
+        pool: Database connection pool
+
+    Returns:
+        Current user or None if not authenticated
+    """
+    try:
+        return await get_current_user(request, pool)
+    except HTTPException:
+        return None

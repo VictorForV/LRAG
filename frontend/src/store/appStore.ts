@@ -4,8 +4,17 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { User } from '../types';
 
 interface AppState {
+  // User authentication
+  currentUser: User | null;
+  isAuthenticated: boolean;
+  setUser: (user: User | null) => void;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
+
   // Theme
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
@@ -30,12 +39,63 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      // User authentication
+      currentUser: null,
+      isAuthenticated: false,
+
+      setUser: (user) => set({ currentUser: user, isAuthenticated: user !== null }),
+
+      login: async (username: string, password: string) => {
+        const { authApi } = await import('../api/auth');
+        const response = await authApi.login(username, password);
+        set({
+          currentUser: response,
+          isAuthenticated: true,
+        });
+      },
+
+      logout: async () => {
+        try {
+          const { authApi } = await import('../api/auth');
+          await authApi.logout();
+        } finally {
+          set({
+            currentUser: null,
+            isAuthenticated: false,
+            currentProject: null,
+            currentSession: null,
+          });
+        }
+      },
+
+      checkAuth: async () => {
+        try {
+          const { authApi } = await import('../api/auth');
+          const response = await authApi.verify();
+          if (response.valid && response.user) {
+            set({
+              currentUser: response.user,
+              isAuthenticated: true,
+            });
+          } else {
+            set({
+              currentUser: null,
+              isAuthenticated: false,
+            });
+          }
+        } catch {
+          set({
+            currentUser: null,
+            isAuthenticated: false,
+          });
+        }
+      },
+
       // Theme
       theme: 'light',
       setTheme: (theme) => {
         set({ theme });
-        // Apply theme class to document
         if (theme === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
@@ -45,7 +105,6 @@ export const useAppStore = create<AppState>()(
       toggleTheme: () => {
         set((state) => {
           const newTheme = state.theme === 'light' ? 'dark' : 'light';
-          // Apply theme class
           if (newTheme === 'dark') {
             document.documentElement.classList.add('dark');
           } else {
@@ -77,12 +136,13 @@ export const useAppStore = create<AppState>()(
         theme: state.theme,
         currentProject: state.currentProject,
         currentSession: state.currentSession,
+        currentUser: state.currentUser,
+        isAuthenticated: state.isAuthenticated,
       }),
     }
   )
 );
 
-// Initialize theme on load
 export const initializeTheme = () => {
   const theme = useAppStore.getState().theme;
   if (theme === 'dark') {

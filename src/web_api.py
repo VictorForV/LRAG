@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from src.api.routes import projects, sessions, messages, documents, chat, settings
+from src.api.routes import projects, sessions, messages, documents, chat, settings, auth
 from src.api.models.responses import HealthResponse
 from src.settings import Settings, load_settings
 import asyncpg
@@ -84,6 +84,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -146,6 +147,10 @@ async def health_check() -> HealthResponse:
 # INCLUDE ROUTERS
 # ============================================================================
 
+# Auth routes (no authentication required)
+app.include_router(auth.router)
+
+# Protected routes (authentication required)
 app.include_router(projects.router)
 app.include_router(sessions.router)
 app.include_router(messages.router)

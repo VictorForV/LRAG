@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.api.models.requests import ProjectCreate, ProjectUpdate
 from src.api.models.responses import Project
-from src.api.dependencies import get_db_pool
+from src.api.dependencies import get_db_pool, get_current_user
+from src.api.models.auth import User
 from src.settings import Settings
 import asyncpg
 
@@ -23,15 +24,17 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 async def list_projects(
     search: Optional[str] = None,
     limit: int = 100,
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    user: User = Depends(get_current_user)
 ) -> List[Project]:
     """
-    List all projects with optional search.
+    List all projects for current user with optional search.
 
     Args:
         search: Optional search term for name/description
         limit: Maximum results to return
         pool: Database connection pool
+        user: Current authenticated user
 
     Returns:
         List of projects with stats
@@ -45,11 +48,11 @@ async def list_projects(
                    FROM projects p
                    LEFT JOIN documents d ON d.project_id = p.id
                    LEFT JOIN chat_sessions s ON s.project_id = p.id
-                   WHERE p.name ILIKE $1 OR p.description ILIKE $1
+                   WHERE p.user_id = $1 AND (p.name ILIKE $2 OR p.description ILIKE $2)
                    GROUP BY p.id
                    ORDER BY p.updated_at DESC
-                   LIMIT $2""",
-                f"%{search}%", limit
+                   LIMIT $3""",
+                user.id, f"%{search}%", limit
             )
         else:
             rows = await pool.fetch(
@@ -59,10 +62,11 @@ async def list_projects(
                    FROM projects p
                    LEFT JOIN documents d ON d.project_id = p.id
                    LEFT JOIN chat_sessions s ON s.project_id = p.id
+                   WHERE p.user_id = $1
                    GROUP BY p.id
                    ORDER BY p.updated_at DESC
-                   LIMIT $1""",
-                limit
+                   LIMIT $2""",
+                user.id, limit
             )
 
         return [
@@ -93,20 +97,22 @@ async def list_projects(
 @router.get("/{project_id}", response_model=Project)
 async def get_project(
     project_id: str,
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    user: User = Depends(get_current_user)
 ) -> Project:
     """
-    Get project details by ID.
+    Get project details by ID (verifies user owns the project).
 
     Args:
         project_id: Project UUID
         pool: Database connection pool
+        user: Current authenticated user
 
     Returns:
         Project details
 
     Raises:
-        HTTPException: If project not found
+        HTTPException: If project not found or user doesn't own it
     """
     try:
         row = await pool.fetchrow(
@@ -116,9 +122,9 @@ async def get_project(
                FROM projects p
                LEFT JOIN documents d ON d.project_id = p.id
                LEFT JOIN chat_sessions s ON s.project_id = p.id
-               WHERE p.id = $1
+               WHERE p.id = $1 AND p.user_id = $2
                GROUP BY p.id""",
-            project_id
+            project_id, user.id
         )
 
         if not row:
@@ -154,14 +160,16 @@ async def get_project(
 @router.post("", response_model=Project, status_code=status.HTTP_201_CREATED)
 async def create_project(
     project_data: ProjectCreate,
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    user: User = Depends(get_current_user)
 ) -> Project:
     """
-    Create a new project.
+    Create a new project for the current user.
 
     Args:
         project_data: Project creation data
         pool: Database connection pool
+        user: Current authenticated user
 
     Returns:
         Created project
@@ -171,9 +179,10 @@ async def create_project(
     """
     try:
         project_id = await pool.fetchval(
-            "INSERT INTO projects (name, description) VALUES ($1, $2) RETURNING id",
+            "INSERT INTO projects (name, description, user_id) VALUES ($1, $2, $3) RETURNING id",
             project_data.name,
-            project_data.description
+            project_data.description,
+            user.id
         )
 
         row = await pool.fetchrow(
@@ -215,15 +224,17 @@ async def create_project(
 async def update_project(
     project_id: str,
     project_data: ProjectUpdate,
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    user: User = Depends(get_current_user)
 ) -> Project:
     """
-    Update project details.
+    Update project details (verifies user owns the project).
 
     Args:
         project_id: Project UUID
         project_data: Project update data
         pool: Database connection pool
+        user: Current authenticated user
 
     Returns:
         Updated project
@@ -248,10 +259,11 @@ async def update_project(
 
         if not updates:
             # No updates, return existing project
-            return await get_project(project_id, pool)
+            return await get_project(project_id, pool, user)
 
         params.append(project_id)
-        query = f"UPDATE projects SET {', '.join(updates)}, updated_at = NOW() WHERE id = ${param_count}"
+        params.append(user.id)
+        query = f"UPDATE projects SET {', '.join(updates)}, updated_at = NOW() WHERE id = ${param_count} AND user_id = ${param_count + 1}"
 
         result = await pool.execute(query, *params)
 
@@ -285,20 +297,22 @@ async def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
     project_id: str,
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    user: User = Depends(get_current_user)
 ) -> None:
     """
-    Delete a project (cascades to sessions, documents).
+    Delete a project (verifies user owns the project, cascades to sessions, documents).
 
     Args:
         project_id: Project UUID
         pool: Database connection pool
+        user: Current authenticated user
 
     Raises:
-        HTTPException: If deletion fails
+        HTTPException: If deletion fails or user doesn't own the project
     """
     try:
-        result = await pool.execute("DELETE FROM projects WHERE id = $1", project_id)
+        result = await pool.execute("DELETE FROM projects WHERE id = $1 AND user_id = $2", project_id, user.id)
 
         if "DELETE 1" not in result:
             raise HTTPException(

@@ -1,9 +1,20 @@
 /**
- * TypeScript type definitions for the RAG Agent API
+ * TypeScript type definitions for RAG Agent API
  */
 
 // ============================================================================
-// TYPES
+// AUTH TYPES
+// ============================================================================
+
+export interface User {
+  id: string;
+  username: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// DOMAIN TYPES
 // ============================================================================
 
 export interface Project {
