@@ -205,14 +205,13 @@ echo embedding_api_key=sk-or-v1-your-api-key-here >> .env
 echo embedding_model=qwen/qwen3-embedding-8b >> .env
 echo llm_base_url=https://openrouter.ai/api/v1 >> .env
 echo embedding_base_url=https://api.openai.com/v1 >> .env
-echo audio_model=openai/whisper-1 >> .env
+
 echo [OK] .env sozdan
 
 echo.
 echo ==================================================
 echo   USTANOVKA ZAVERSHENA!
 echo ==================================================
-echo.
 echo [X] Vstavte API klyuch v .env!
 echo.
 pause
