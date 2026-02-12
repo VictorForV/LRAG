@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS relations (
 
 -- Create indexes for better search performance
 CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id);
-CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- Use HNSW index for vectors with >2000 dimensions (ivfflat max is 2000)
+CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_chunks_content_gin ON chunks USING gin(to_tsvector('english', content));
 CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents USING gin(metadata);
 CREATE INDEX IF NOT EXISTS idx_documents_project_id ON documents(project_id);

@@ -188,6 +188,10 @@ if not exist postgres\bin\psql.exe (
     "!PSQL!" -U postgres -d rag_kb -c "CREATE EXTENSION IF NOT EXISTS vector;"
     echo [OK] vector extension created
 
+    echo [*] Creating database schema...
+    "!PSQL!" -U postgres -d rag_kb -f src\schema.sql
+    echo [OK] Database schema created
+
     echo [*] Stopping PostgreSQL...
     "!PGCTL!" -D postgres\data stop
 
