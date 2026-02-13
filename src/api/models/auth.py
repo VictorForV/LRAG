@@ -55,6 +55,10 @@ class UserSettings(BaseModel):
     embedding_provider: Optional[str] = Field(None, description="Embedding provider")
     embedding_dimension: Optional[int] = Field(None, description="Embedding vector dimension")
     audio_model: Optional[str] = Field(None, description="Audio transcription model")
+    http_proxy_host: Optional[str] = Field(None, description="HTTP proxy host")
+    http_proxy_port: Optional[int] = Field(None, description="HTTP proxy port")
+    http_proxy_username: Optional[str] = Field(None, description="HTTP proxy username")
+    http_proxy_password: Optional[str] = Field(None, description="HTTP proxy password (masked)")
     search_preferences: dict = Field(default_factory=dict, description="Search preferences")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
@@ -73,6 +77,10 @@ class UserSettingsUpdate(BaseModel):
     embedding_provider: Optional[str] = Field(None, description="Embedding provider")
     embedding_dimension: Optional[int] = Field(None, ge=1, description="Embedding vector dimension")
     audio_model: Optional[str] = Field(None, max_length=200, description="Audio model")
+    http_proxy_host: Optional[str] = Field(None, max_length=255, description="HTTP proxy host")
+    http_proxy_port: Optional[int] = Field(None, ge=1, le=65535, description="HTTP proxy port")
+    http_proxy_username: Optional[str] = Field(None, max_length=255, description="HTTP proxy username")
+    http_proxy_password: Optional[str] = Field(None, max_length=255, description="HTTP proxy password")
     search_preferences: Optional[dict] = Field(None, description="Search preferences")
 
 

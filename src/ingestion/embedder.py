@@ -4,7 +4,7 @@ Supports OpenRouter embeddings via direct HTTP requests.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 import httpx
 
@@ -39,7 +39,8 @@ class EmbeddingGenerator:
     def __init__(
         self,
         model: str = EMBEDDING_MODEL,
-        batch_size: int = 100
+        batch_size: int = 100,
+        user_settings: Optional[dict] = None
     ):
         """
         Initialize embedding generator.
@@ -47,11 +48,36 @@ class EmbeddingGenerator:
         Args:
             model: Embedding model to use
             batch_size: Number of texts to process in parallel
+            user_settings: Optional user-specific settings with API keys and proxy
         """
-        self.model = model
+        self.user_settings = user_settings
+
+        # Use user settings if available, otherwise fall back to global settings
+        if user_settings and user_settings.get("embedding_model"):
+            self.model = user_settings.get("embedding_model", model)
+            self.api_key = user_settings.get("embedding_api_key", EMBEDDING_API_KEY)
+            self.base_url = user_settings.get("embedding_base_url", EMBEDDING_BASE_URL)
+        else:
+            self.model = model
+            self.api_key = EMBEDDING_API_KEY
+            self.base_url = EMBEDDING_BASE_URL
+
         self.batch_size = batch_size
-        self.api_key = EMBEDDING_API_KEY
-        self.base_url = EMBEDDING_BASE_URL
+
+        # Build proxy URL if user has proxy settings
+        self.proxy_url = None
+        if user_settings and user_settings.get("http_proxy_host"):
+            proxy_host = user_settings["http_proxy_host"]
+            proxy_port = user_settings["http_proxy_port"]
+            proxy_username = user_settings.get("http_proxy_username")
+            proxy_password = user_settings.get("http_proxy_password")
+
+            if proxy_username and proxy_password:
+                self.proxy_url = f"http://{proxy_username}:{proxy_password}@{proxy_host}:{proxy_port}"
+            else:
+                self.proxy_url = f"http://{proxy_host}:{proxy_port}"
+
+            logger.info(f"EmbeddingGenerator using proxy: {proxy_host}:{proxy_port}")
 
         # Model-specific configurations
         self.model_configs = {
@@ -62,7 +88,7 @@ class EmbeddingGenerator:
         }
 
         self.config = self.model_configs.get(
-            model,
+            self.model,
             {"dimensions": 1536, "max_tokens": 8191}
         )
 
@@ -76,7 +102,7 @@ class EmbeddingGenerator:
         Returns:
             List of embedding vectors
         """
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=60.0, proxy=self.proxy_url) as client:
             response = await client.post(
                 f"{self.base_url}/embeddings",
                 headers={
@@ -208,6 +234,6 @@ def get_embedder() -> EmbeddingGenerator:
     return _embedder
 
 
-def create_embedder(**kwargs) -> EmbeddingGenerator:
+def create_embedder(user_settings: Optional[dict] = None, **kwargs) -> EmbeddingGenerator:
     """Create a new embedder instance with custom settings."""
-    return EmbeddingGenerator(**kwargs)
+    return EmbeddingGenerator(user_settings=user_settings, **kwargs)

@@ -3,7 +3,7 @@
  */
 
 import apiClient from './client';
-import type { User, LoginResponse } from '../types';
+import type { User } from '../types';
 
 // ============================================================================
 // AUTH API
@@ -37,6 +37,10 @@ export interface UserSettings {
   embedding_provider: string | null;
   embedding_dimension: number | null;
   audio_model: string | null;
+  http_proxy_host: string | null;
+  http_proxy_port: number | null;
+  http_proxy_username: string | null;
+  http_proxy_password: string | null;
   search_preferences: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -53,6 +57,10 @@ export interface UserSettingsUpdate {
   embedding_provider?: string;
   embedding_dimension?: number;
   audio_model?: string;
+  http_proxy_host?: string;
+  http_proxy_port?: number;
+  http_proxy_username?: string;
+  http_proxy_password?: string;
   search_preferences?: Record<string, unknown>;
 }
 

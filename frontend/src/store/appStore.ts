@@ -39,7 +39,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       // User authentication
       currentUser: null,
       isAuthenticated: false,

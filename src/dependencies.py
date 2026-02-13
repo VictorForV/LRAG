@@ -22,6 +22,7 @@ class AgentDependencies:
     db_pool: Optional[asyncpg.Pool] = None
     openai_client: Optional[openai.AsyncOpenAI] = None
     settings: Optional[Any] = None
+    user_settings: Optional[Any] = None  # User-specific settings from database
 
     # Session context
     session_id: Optional[str] = None
@@ -59,11 +60,37 @@ class AgentDependencies:
 
         # Initialize OpenAI client for LLM (not embeddings)
         if not self.openai_client:
+            # Build proxy configuration if user has proxy settings
+            http_client = None
+            if self.user_settings and self.user_settings.get("http_proxy_host"):
+                proxy_host = self.user_settings["http_proxy_host"]
+                proxy_port = self.user_settings["http_proxy_port"]
+                proxy_username = self.user_settings.get("http_proxy_username")
+                proxy_password = self.user_settings.get("http_proxy_password")
+
+                # Build proxy URL
+                if proxy_username and proxy_password:
+                    proxy_url = f"http://{proxy_username}:{proxy_password}@{proxy_host}:{proxy_port}"
+                else:
+                    proxy_url = f"http://{proxy_host}:{proxy_port}"
+
+                logger.info(f"Using HTTP proxy: {proxy_host}:{proxy_port}")
+                http_client = httpx.AsyncClient(proxy=proxy_url, timeout=60.0)
+
+            # Use user settings if available, otherwise fall back to global settings
+            api_key = (self.user_settings.get("llm_api_key") if self.user_settings and self.user_settings.get("llm_api_key")
+                      else self.settings.llm_api_key)
+            base_url = (self.user_settings.get("llm_base_url") if self.user_settings and self.user_settings.get("llm_base_url")
+                       else self.settings.llm_base_url)
+            model = (self.user_settings.get("llm_model") if self.user_settings and self.user_settings.get("llm_model")
+                    else self.settings.llm_model)
+
             self.openai_client = openai.AsyncOpenAI(
-                api_key=self.settings.llm_api_key,
-                base_url=self.settings.llm_base_url,
+                api_key=api_key,
+                base_url=base_url,
+                http_client=http_client
             )
-            logger.info(f"openai_client_initialized, model={self.settings.llm_model}")
+            logger.info(f"openai_client_initialized, model={model}, proxy={bool(http_client)}")
 
     async def cleanup(self) -> None:
         """Clean up external connections."""
@@ -85,16 +112,38 @@ class AgentDependencies:
         Raises:
             Exception: If embedding generation fails
         """
+        # Build proxy configuration if user has proxy settings
+        proxy_url = None
+        if self.user_settings and self.user_settings.get("http_proxy_host"):
+            proxy_host = self.user_settings["http_proxy_host"]
+            proxy_port = self.user_settings["http_proxy_port"]
+            proxy_username = self.user_settings.get("http_proxy_username")
+            proxy_password = self.user_settings.get("http_proxy_password")
+
+            # Build proxy URL
+            if proxy_username and proxy_password:
+                proxy_url = f"http://{proxy_username}:{proxy_password}@{proxy_host}:{proxy_port}"
+            else:
+                proxy_url = f"http://{proxy_host}:{proxy_port}"
+
+        # Use user settings if available, otherwise fall back to global settings
+        api_key = (self.user_settings.get("embedding_api_key") if self.user_settings and self.user_settings.get("embedding_api_key")
+                  else self.settings.embedding_api_key)
+        base_url = (self.user_settings.get("embedding_base_url") if self.user_settings and self.user_settings.get("embedding_base_url")
+                   else self.settings.embedding_base_url or self.settings.llm_base_url)
+        model = (self.user_settings.get("embedding_model") if self.user_settings and self.user_settings.get("embedding_model")
+                else self.settings.embedding_model)
+
         # Direct HTTP request to OpenRouter for embeddings
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=60.0, proxy=proxy_url) as client:
             response = await client.post(
-                f"{self.settings.embedding_base_url}/embeddings",
+                f"{base_url}/embeddings",
                 headers={
-                    "Authorization": f"Bearer {self.settings.embedding_api_key}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": self.settings.embedding_model,
+                    "model": model,
                     "input": text,
                 }
             )

@@ -23,6 +23,79 @@ SESSION_EXPIRE_DAYS = 30
 
 
 # ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+def hashlib_sha256(data: str) -> str:
+    """
+    Calculate SHA256 hash of string.
+
+    Args:
+        data: String to hash
+
+    Returns:
+        Hexadecimal hash string
+    """
+    import hashlib
+    return hashlib.sha256(data.encode()).hexdigest()
+
+
+# ============================================================================
+# DEPENDENCY: GET CURRENT USER
+# ============================================================================
+
+async def get_current_user_dep(
+    request: Request,
+    pool: asyncpg.Pool = Depends(get_db_pool)
+) -> User:
+    """
+    Dependency to get current authenticated user from session cookie.
+
+    Args:
+        request: FastAPI request
+        pool: Database connection pool
+
+    Returns:
+        Current user
+
+    Raises:
+        HTTPException: If not authenticated
+    """
+    # Get session token from cookie
+    session_token = request.cookies.get("session_token")
+
+    if not session_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    token_hash = hashlib_sha256(session_token)
+
+    # Look up session with user
+    row = await pool.fetchrow(
+        """SELECT u.id, u.username, u.created_at, u.updated_at
+           FROM user_sessions us
+           JOIN users u ON us.user_id = u.id
+           WHERE us.token_hash = $1 AND us.expires_at > NOW()""",
+        token_hash
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session"
+        )
+
+    return User(
+        id=str(row["id"]),
+        username=row["username"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"]
+    )
+
+
+# ============================================================================
 # LOGIN
 # ============================================================================
 
@@ -277,7 +350,8 @@ async def get_user_settings(
         row = await pool.fetchrow(
             """SELECT id, user_id, llm_api_key, llm_model, llm_base_url, llm_provider,
                       embedding_api_key, embedding_model, embedding_base_url, embedding_provider,
-                      embedding_dimension, audio_model, search_preferences, created_at, updated_at
+                      embedding_dimension, audio_model, http_proxy_host, http_proxy_port,
+                      http_proxy_username, http_proxy_password, search_preferences, created_at, updated_at
                FROM user_settings WHERE user_id = $1""",
             user.id
         )
@@ -290,9 +364,21 @@ async def get_user_settings(
                 user.id
             )
 
-        # Mask API keys in response
+        # Mask API keys and proxy password in response
         llm_api_key = mask_api_key(row["llm_api_key"])
         embedding_api_key = mask_api_key(row["embedding_api_key"])
+        proxy_password = mask_api_key(row["http_proxy_password"])
+
+        # Parse search_preferences from JSONB (can be dict, str, or None)
+        search_prefs = row["search_preferences"]
+        if isinstance(search_prefs, str):
+            import json
+            try:
+                search_prefs = json.loads(search_prefs)
+            except:
+                search_prefs = {}
+        elif search_prefs is None:
+            search_prefs = {}
 
         return UserSettings(
             id=str(row["id"]),
@@ -307,7 +393,11 @@ async def get_user_settings(
             embedding_provider=row["embedding_provider"],
             embedding_dimension=row["embedding_dimension"],
             audio_model=row["audio_model"],
-            search_preferences=row["search_preferences"] or {},
+            http_proxy_host=row["http_proxy_host"],
+            http_proxy_port=row["http_proxy_port"],
+            http_proxy_username=row["http_proxy_username"],
+            http_proxy_password=proxy_password,
+            search_preferences=search_prefs,
             created_at=row["created_at"],
             updated_at=row["updated_at"]
         )
@@ -367,9 +457,21 @@ async def update_user_settings(
                 detail="Settings not found"
             )
 
-        # Mask API keys in response
+        # Mask API keys and proxy password in response
         llm_api_key = mask_api_key(row["llm_api_key"])
         embedding_api_key = mask_api_key(row["embedding_api_key"])
+        proxy_password = mask_api_key(row["http_proxy_password"])
+
+        # Parse search_preferences from JSONB (can be dict, str, or None)
+        search_prefs = row["search_preferences"]
+        if isinstance(search_prefs, str):
+            import json
+            try:
+                search_prefs = json.loads(search_prefs)
+            except:
+                search_prefs = {}
+        elif search_prefs is None:
+            search_prefs = {}
 
         return UserSettings(
             id=str(row["id"]),
@@ -384,7 +486,11 @@ async def update_user_settings(
             embedding_provider=row["embedding_provider"],
             embedding_dimension=row["embedding_dimension"],
             audio_model=row["audio_model"],
-            search_preferences=row["search_preferences"] or {},
+            http_proxy_host=row["http_proxy_host"],
+            http_proxy_port=row["http_proxy_port"],
+            http_proxy_username=row["http_proxy_username"],
+            http_proxy_password=proxy_password,
+            search_preferences=search_prefs,
             created_at=row["created_at"],
             updated_at=row["updated_at"]
         )

@@ -24,9 +24,10 @@ class RAGState(BaseModel):
     project_name: Optional[str] = None
 
 
-# Create the RAG agent with AgentDependencies (not StateDeps for simplicity)
+# Create the RAG agent with default model from settings
+# User-specific model will be passed in run() to override
 rag_agent = Agent(
-    get_llm_model(),
+    get_llm_model(),  # Default model (will be overridden in run())
     deps_type=AgentDependencies,
     system_prompt=MAIN_SYSTEM_PROMPT
 )

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         description="LLM provider (openai, anthropic, gemini, ollama, etc.)",
     )
 
-    llm_api_key: str = Field(..., description="API key for the LLM provider")
+    llm_api_key: str = Field(default="", description="API key for the LLM provider")
 
     llm_model: str = Field(
         default="anthropic/claude-haiku-4.5",
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # Embedding Configuration
     embedding_provider: str = Field(default="openai", description="Embedding provider")
 
-    embedding_api_key: str = Field(..., description="API key for embedding provider")
+    embedding_api_key: str = Field(default="", description="API key for embedding provider")
 
     embedding_model: str = Field(
         default="text-embedding-3-small", description="Embedding model to use"

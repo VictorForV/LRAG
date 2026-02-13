@@ -57,13 +57,15 @@ class DocumentIngestionPipeline:
         config: IngestionConfig,
         documents_folder: str = "documents",
         clean_before_ingest: bool = True,
-        project_id: Optional[str] = None
+        project_id: Optional[str] = None,
+        user_settings: Optional[Any] = None
     ):
         """Initialize ingestion pipeline."""
         self.config = config
         self.documents_folder = documents_folder
         self.clean_before_ingest = clean_before_ingest
         self.project_id = project_id or config.project_id
+        self.user_settings = user_settings
 
         # Load settings
         self.settings = load_settings()
@@ -80,7 +82,7 @@ class DocumentIngestionPipeline:
         )
 
         self.chunker = create_chunker(self.chunker_config)
-        self.embedder = create_embedder()
+        self.embedder = create_embedder(user_settings=user_settings)
 
         self._initialized = False
 

@@ -34,7 +34,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError('Please enter username and password');
+      setError('Введите логин и пароль');
       return;
     }
 
@@ -45,7 +45,7 @@ export default function LoginPage() {
       await login(username.trim(), password);
       navigate('/');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Login failed';
+      const message = err instanceof Error ? err.message : 'Ошибка входа';
       setError(message);
     } finally {
       setLoading(false);
@@ -62,10 +62,10 @@ export default function LoginPage() {
               <Lock className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Welcome Back
+              Добро пожаловать
             </h1>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Sign in to your account
+              Войдите в свою учетную запись
             </p>
           </div>
 
@@ -83,7 +83,7 @@ export default function LoginPage() {
                 htmlFor="username"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
-                Username
+                Логин
               </label>
               <input
                 id="username"
@@ -91,7 +91,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full rounded-md border-0 py-1.5 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-gray-700 dark:focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                placeholder="Enter your username"
+                placeholder="Введите логин"
                 autoComplete="username"
                 disabled={loading}
               />
@@ -102,7 +102,7 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
-                Password
+                Пароль
               </label>
               <input
                 id="password"
@@ -110,7 +110,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-md border-0 py-1.5 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-gray-700 dark:focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                placeholder="Enter your password"
+                placeholder="Введите пароль"
                 autoComplete="current-password"
                 disabled={loading}
               />
@@ -121,13 +121,13 @@ export default function LoginPage() {
               disabled={loading}
               className="flex w-full justify-center rounded-md bg-indigo-600 dark:bg-indigo-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Вход...' : 'Войти'}
             </button>
           </form>
 
           {/* Footer */}
           <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-            Contact your administrator to create an account
+            Обратитесь к администратору для создания учетной записи
           </p>
         </div>
       </div>

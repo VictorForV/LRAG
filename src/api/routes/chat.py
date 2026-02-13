@@ -9,7 +9,8 @@ from pydantic_ai.messages import ModelMessage
 
 from src.api.models.requests import ChatRequest
 from src.api.models.responses import ChatChunkEvent
-from src.api.dependencies import get_agent_dependencies, get_db_pool
+from src.api.models.auth import User
+from src.api.dependencies import get_agent_dependencies, get_db_pool, get_current_user
 from src.agent import rag_agent
 import asyncpg
 
@@ -25,7 +26,8 @@ router = APIRouter(prefix="/api", tags=["chat"])
 @router.post("/chat/stream")
 async def stream_chat(
     request_data: ChatRequest,
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    user: User = Depends(get_current_user)
 ) -> StreamingResponse:
     """
     Stream chat response using Server-Sent Events.
@@ -66,11 +68,23 @@ async def stream_chat(
                 from src.dependencies import AgentDependencies
                 from src.api.dependencies import get_settings
 
+                # Load global settings
                 settings = await get_settings()
+
+                # Load user-specific settings from database
+                user_settings_row = await pool.fetchrow(
+                    """SELECT llm_api_key, llm_model, llm_base_url, llm_provider,
+                              embedding_api_key, embedding_model, embedding_base_url,
+                              http_proxy_host, http_proxy_port, http_proxy_username, http_proxy_password
+                       FROM user_settings WHERE user_id = $1""",
+                    user.id
+                )
+
                 agent_deps = AgentDependencies(
                     project_id=request_data.project_id,
                     session_id=request_data.session_id,
-                    settings=settings
+                    settings=settings,
+                    user_settings=user_settings_row
                 )
                 await agent_deps.initialize()
 
@@ -80,11 +94,16 @@ async def stream_chat(
                     for msg in request_data.message_history
                 ]
 
-                # Run agent (non-streaming for now - can upgrade to streaming later)
+                # Create model with user settings (including proxy)
+                from src.providers import get_llm_model
+                user_model = get_llm_model(user_settings=user_settings_row)
+
+                # Run agent with user-specific model (non-streaming for now)
                 result = await rag_agent.run(
                     request_data.message,
                     deps=agent_deps,
-                    message_history=message_history
+                    message_history=message_history,
+                    model=user_model
                 )
 
                 response_text = result.output
@@ -140,7 +159,8 @@ async def stream_chat(
 @router.post("/chat")
 async def chat(
     request_data: ChatRequest,
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    user: User = Depends(get_current_user)
 ) -> dict:
     """
     Non-streaming chat endpoint (fallback for clients that don't support SSE).
@@ -165,11 +185,23 @@ async def chat(
         from src.dependencies import AgentDependencies
         from src.api.dependencies import get_settings
 
+        # Load global settings
         settings = await get_settings()
+
+        # Load user-specific settings from database
+        user_settings_row = await pool.fetchrow(
+            """SELECT llm_api_key, llm_model, llm_base_url, llm_provider,
+                      embedding_api_key, embedding_model, embedding_base_url,
+                      http_proxy_host, http_proxy_port, http_proxy_username, http_proxy_password
+               FROM user_settings WHERE user_id = $1""",
+            user.id
+        )
+
         agent_deps = AgentDependencies(
             project_id=request_data.project_id,
             session_id=request_data.session_id,
-            settings=settings
+            settings=settings,
+            user_settings=user_settings_row
         )
         await agent_deps.initialize()
 
@@ -180,10 +212,15 @@ async def chat(
                 for msg in request_data.message_history
             ]
 
+            # Create model with user settings (including proxy)
+            from src.providers import get_llm_model
+            user_model = get_llm_model(user_settings=user_settings_row)
+
             result = await rag_agent.run(
                 request_data.message,
                 deps=agent_deps,
-                message_history=message_history
+                message_history=message_history,
+                model=user_model
             )
 
             response_text = result.output

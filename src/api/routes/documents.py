@@ -325,6 +325,15 @@ async def upload_files(
                     os.remove(temp_path)
                     continue
 
+                # Load user-specific settings for embeddings and proxy
+                user_settings_row = await pool.fetchrow(
+                    """SELECT llm_api_key, llm_model, llm_base_url, llm_provider,
+                              embedding_api_key, embedding_model, embedding_base_url,
+                              http_proxy_host, http_proxy_port, http_proxy_username, http_proxy_password
+                       FROM user_settings WHERE user_id = $1""",
+                    user.id
+                )
+
                 # Process document using ingestion pipeline
                 from src.ingestion.ingest import DocumentIngestionPipeline, IngestionConfig
 
@@ -337,7 +346,8 @@ async def upload_files(
                     config=config,
                     documents_folder=temp_dir,
                     clean_before_ingest=False,
-                    project_id=project_id
+                    project_id=project_id,
+                    user_settings=user_settings_row
                 )
                 await pipeline.initialize()
 

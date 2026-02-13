@@ -4,8 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import { Settings } from 'lucide-react';
-import { settingsApi } from '../api';
-import type { Settings as SettingsType, SettingsUpdate } from '../types';
+import { authApi } from '../api/auth';
+import type { UserSettings, UserSettingsUpdate } from '../api/auth';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import {
@@ -23,18 +23,22 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const [settings, setSettings] = useState<SettingsType | null>(null);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   // Form fields
-  const [apiKey, setApiKey] = useState('');
-  const [chatModel, setChatModel] = useState('');
+  const [llmApiKey, setLlmApiKey] = useState('');
+  const [llmModel, setLlmModel] = useState('');
+  const [embeddingApiKey, setEmbeddingApiKey] = useState('');
   const [embeddingModel, setEmbeddingModel] = useState('');
   const [audioModel, setAudioModel] = useState('');
-  const [databaseUrl, setDatabaseUrl] = useState('');
+  const [proxyHost, setProxyHost] = useState('');
+  const [proxyPort, setProxyPort] = useState('');
+  const [proxyUsername, setProxyUsername] = useState('');
+  const [proxyPassword, setProxyPassword] = useState('');
 
   // Load settings on mount
   useEffect(() => {
@@ -47,14 +51,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await settingsApi.get();
+      const data = await authApi.getSettings();
       setSettings(data);
-      // Initialize form with current values (API key is not returned for security)
-      setChatModel(data.llm_model || '');
+      // Initialize form with current values (API keys are masked)
+      setLlmModel(data.llm_model || '');
       setEmbeddingModel(data.embedding_model || '');
       setAudioModel(data.audio_model || '');
-      setApiKey(''); // Don't show current API key
-      setDatabaseUrl(''); // Don't show current DB URL
+      setProxyHost(data.http_proxy_host || '');
+      setProxyPort(data.http_proxy_port?.toString() || '');
+      setProxyUsername(data.http_proxy_username || '');
+      setLlmApiKey(''); // Don't show current API keys and passwords
+      setEmbeddingApiKey('');
+      setProxyPassword('');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load settings';
       setError(message);
@@ -68,16 +76,19 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     setError(null);
     setSuccess(false);
 
-    const updateData: SettingsUpdate = {};
-    if (apiKey) updateData.llm_api_key = apiKey;
-    if (chatModel) updateData.llm_model = chatModel;
-    if (apiKey) updateData.embedding_api_key = apiKey;
+    const updateData: UserSettingsUpdate = {};
+    if (llmApiKey) updateData.llm_api_key = llmApiKey;
+    if (llmModel) updateData.llm_model = llmModel;
+    if (embeddingApiKey) updateData.embedding_api_key = embeddingApiKey;
     if (embeddingModel) updateData.embedding_model = embeddingModel;
     if (audioModel) updateData.audio_model = audioModel;
-    if (databaseUrl) updateData.database_url = databaseUrl;
+    if (proxyHost) updateData.http_proxy_host = proxyHost;
+    if (proxyPort) updateData.http_proxy_port = parseInt(proxyPort);
+    if (proxyUsername) updateData.http_proxy_username = proxyUsername;
+    if (proxyPassword) updateData.http_proxy_password = proxyPassword;
 
     try {
-      await settingsApi.update(updateData);
+      await authApi.updateSettings(updateData);
       setSuccess(true);
       // Reload settings
       await loadSettings();
@@ -143,20 +154,36 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label htmlFor="api-key" className="text-sm font-medium">
-                    API Key
+                  <label htmlFor="llm-api-key" className="text-sm font-medium">
+                    LLM API Key
                   </label>
                   <Input
-                    id="api-key"
+                    id="llm-api-key"
                     type="password"
-                    placeholder="Enter new API key (leave empty to keep current)"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter new LLM API key (leave empty to keep current)"
+                    value={llmApiKey}
+                    onChange={(e) => setLlmApiKey(e.target.value)}
                     className="mt-1"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Used for both LLM and embeddings
-                  </p>
+                  {settings && settings.llm_api_key && (
+                    <p className="text-xs text-green-600 mt-1">✅ Configured</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="embedding-api-key" className="text-sm font-medium">
+                    Embedding API Key
+                  </label>
+                  <Input
+                    id="embedding-api-key"
+                    type="password"
+                    placeholder="Enter new embedding API key (leave empty to keep current)"
+                    value={embeddingApiKey}
+                    onChange={(e) => setEmbeddingApiKey(e.target.value)}
+                    className="mt-1"
+                  />
+                  {settings && settings.embedding_api_key && (
+                    <p className="text-xs text-green-600 mt-1">✅ Configured</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -168,19 +195,31 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label htmlFor="chat-model" className="text-sm font-medium">
-                    Chat Model
+                  <label htmlFor="llm-model" className="text-sm font-medium">
+                    LLM Model
                   </label>
                   <Input
-                    id="chat-model"
+                    id="llm-model"
+                    list="llm-models-list"
                     placeholder="anthropic/claude-haiku-4.5"
-                    value={chatModel}
-                    onChange={(e) => setChatModel(e.target.value)}
+                    value={llmModel}
+                    onChange={(e) => setLlmModel(e.target.value)}
                     className="mt-1"
                   />
+                  <datalist id="llm-models-list">
+                    <option value="anthropic/claude-sonnet-4.5" />
+                    <option value="anthropic/claude-haiku-4.5" />
+                    <option value="anthropic/claude-opus-4" />
+                    <option value="openai/gpt-4o" />
+                    <option value="openai/gpt-4o-mini" />
+                    <option value="openai/o1" />
+                    <option value="google/gemini-2.0-flash-exp" />
+                    <option value="meta-llama/llama-3.3-70b-instruct" />
+                    <option value="qwen/qwen-2.5-72b-instruct" />
+                  </datalist>
                   {settings && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Current: {settings.llm_model}
+                      Current: {settings.llm_model || 'Not set'}
                     </p>
                   )}
                 </div>
@@ -190,14 +229,23 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </label>
                   <Input
                     id="embedding-model"
+                    list="embedding-models-list"
                     placeholder="text-embedding-3-small"
                     value={embeddingModel}
                     onChange={(e) => setEmbeddingModel(e.target.value)}
                     className="mt-1"
                   />
+                  <datalist id="embedding-models-list">
+                    <option value="openai/text-embedding-3-small" />
+                    <option value="openai/text-embedding-3-large" />
+                    <option value="qwen/qwen3-embedding-8b" />
+                    <option value="text-embedding-004" />
+                    <option value="voyage-3" />
+                  </datalist>
                   {settings && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Current: {settings.embedding_model} (dim: {settings.embedding_dimension})
+                      Current: {settings.embedding_model || 'Not set'}
+                      {settings.embedding_dimension && ` (dim: ${settings.embedding_dimension})`}
                     </p>
                   )}
                 </div>
@@ -214,38 +262,78 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   />
                   {settings && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Current: {settings.audio_model}
+                      Current: {settings.audio_model || 'Not set'}
                     </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Database */}
+            {/* HTTP Proxy */}
             <div>
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                🗄️ Database
+                🌐 HTTP Proxy (для OpenRouter)
               </h3>
               <div className="space-y-3">
-                <div>
-                  <label htmlFor="database-url" className="text-sm font-medium">
-                    Database URL
-                  </label>
-                  <Input
-                    id="database-url"
-                    type="password"
-                    placeholder="postgresql://user:pass@localhost:5432/rag_kb"
-                    value={databaseUrl}
-                    onChange={(e) => setDatabaseUrl(e.target.value)}
-                    className="mt-1 font-mono text-xs"
-                  />
-                  {settings && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Connected: {settings.database_name}
-                      {settings.database_connected && ' ✅'}
-                    </p>
-                  )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="proxy-host" className="text-sm font-medium">
+                      Proxy Host
+                    </label>
+                    <Input
+                      id="proxy-host"
+                      placeholder="178.173.248.119"
+                      value={proxyHost}
+                      onChange={(e) => setProxyHost(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="proxy-port" className="text-sm font-medium">
+                      Port
+                    </label>
+                    <Input
+                      id="proxy-port"
+                      type="number"
+                      placeholder="23627"
+                      value={proxyPort}
+                      onChange={(e) => setProxyPort(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="proxy-username" className="text-sm font-medium">
+                      Username
+                    </label>
+                    <Input
+                      id="proxy-username"
+                      placeholder="username"
+                      value={proxyUsername}
+                      onChange={(e) => setProxyUsername(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="proxy-password" className="text-sm font-medium">
+                      Password
+                    </label>
+                    <Input
+                      id="proxy-password"
+                      type="password"
+                      placeholder="password"
+                      value={proxyPassword}
+                      onChange={(e) => setProxyPassword(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                {settings && settings.http_proxy_host && (
+                  <p className="text-xs text-green-600">
+                    ✅ Configured: {settings.http_proxy_host}:{settings.http_proxy_port}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -254,9 +342,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               <div className="p-3 bg-muted rounded-md text-sm">
                 <p className="font-semibold mb-1">Current Status:</p>
                 <ul className="text-xs space-y-1 text-muted-foreground">
-                  <li>• LLM: {settings.llm_provider}</li>
-                  <li>• API Key: {settings.llm_api_key_configured ? '✅ Configured' : '❌ Missing'}</li>
-                  <li>• Embedding Key: {settings.embedding_api_key_configured ? '✅ Configured' : '❌ Missing'}</li>
+                  <li>• LLM Provider: {settings.llm_provider || 'Not set'}</li>
+                  <li>• LLM API Key: {settings.llm_api_key ? '✅ Configured' : '❌ Missing'}</li>
+                  <li>• Embedding API Key: {settings.embedding_api_key ? '✅ Configured' : '❌ Missing'}</li>
+                  <li>• LLM Model: {settings.llm_model || 'Not set'}</li>
+                  <li>• Embedding Model: {settings.embedding_model || 'Not set'}</li>
                 </ul>
               </div>
             )}
