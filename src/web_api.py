@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from src.api.routes import projects, sessions, messages, documents, chat, settings, auth
+from src.api.routes import projects, sessions, messages, documents, chat, settings, auth, jobs
 from src.api.models.responses import HealthResponse
 from src.settings import Settings, load_settings
 import asyncpg
@@ -155,6 +155,7 @@ app.include_router(projects.router)
 app.include_router(sessions.router)
 app.include_router(messages.router)
 app.include_router(documents.router)
+app.include_router(jobs.router)
 app.include_router(chat.router)
 app.include_router(settings.router)
 

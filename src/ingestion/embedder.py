@@ -53,12 +53,12 @@ class EmbeddingGenerator:
         self.user_settings = user_settings
 
         # Use user settings if available, otherwise fall back to global settings
-        if user_settings and user_settings.get("embedding_model"):
-            self.model = user_settings.get("embedding_model", model)
-            self.api_key = user_settings.get("embedding_api_key", EMBEDDING_API_KEY)
-            self.base_url = user_settings.get("embedding_base_url", EMBEDDING_BASE_URL)
+        if user_settings:
+            self.model = user_settings.get("embedding_model") or model or EMBEDDING_MODEL
+            self.api_key = user_settings.get("embedding_api_key") or EMBEDDING_API_KEY
+            self.base_url = user_settings.get("embedding_base_url") or EMBEDDING_BASE_URL
         else:
-            self.model = model
+            self.model = model or EMBEDDING_MODEL
             self.api_key = EMBEDDING_API_KEY
             self.base_url = EMBEDDING_BASE_URL
 

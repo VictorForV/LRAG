@@ -159,41 +159,10 @@ class DocumentIngestionPipeline:
         ]
 
         if file_ext in docling_formats:
-            # Special handling for PDF files - try Docling first, fallback to PDF→image OCR
+            # For PDF files, use PaddleOCR directly (faster and more reliable for Russian)
             if file_ext == '.pdf':
-                file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-
-                # For large PDFs (>5MB), skip Docling and go straight to PDF→image OCR with Tesseract
-                # Docling with RapidOCR has poor Russian support, and Tesseract through Docling is very slow
-                if file_size_mb > 5:
-                    logger.info(f"Large PDF ({file_size_mb:.1f}MB), using PDF→image OCR with Tesseract directly")
-                    return self._pdf_scan_to_images(file_path)
-
-                try:
-                    from docling.document_converter import DocumentConverter
-
-                    logger.info(f"Converting PDF using Docling: {os.path.basename(file_path)}")
-
-                    converter = DocumentConverter()
-                    result = converter.convert(file_path)
-                    markdown_content = result.document.export_to_markdown()
-
-                    # Check if we got meaningful text (more than 500 chars and not just image placeholders)
-                    text_content = markdown_content.strip()
-                    # Filter out image placeholders and empty content
-                    meaningful_text = text_content.replace('<!-- image -->', '').replace('_', '').strip()
-
-                    if len(meaningful_text) > 500:
-                        logger.info(f"Successfully converted PDF with Docling: {len(meaningful_text)} chars")
-                        return (markdown_content, result.document)
-                    else:
-                        logger.warning(f"Docling extracted little meaningful text ({len(meaningful_text)} chars), trying PDF→image OCR")
-                        raise ValueError("Insufficient meaningful text extracted by Docling")
-
-                except Exception as e:
-                    logger.warning(f"Docling failed for PDF: {e}, falling back to PDF→image OCR")
-                    # Fallback to PDF→image conversion with Tesseract
-                    return self._pdf_scan_to_images(file_path)
+                logger.info(f"Processing PDF with PaddleOCR: {os.path.basename(file_path)}")
+                return self._paddle_ocr_pdf(file_path)
 
             # Other formats (DOCX, etc.) - use Docling
             try:
@@ -293,60 +262,115 @@ class DocumentIngestionPipeline:
             logger.error(f"Failed to transcribe {file_path}: {e}")
             return (f"[Error: Could not transcribe audio file {os.path.basename(file_path)}]", None)
 
-    def _pdf_scan_to_images(self, file_path: str) -> tuple[str, Optional[Any]]:
-        """Convert PDF to images and OCR with Tesseract for better Russian text recognition."""
+    def _paddle_ocr_pdf(self, file_path: str) -> tuple[str, Optional[Any]]:
+        """Convert PDF to images and OCR with PaddleOCR for better multilingual text recognition."""
         try:
-            import pytesseract
-            from PIL import Image
+            from paddleocr import PaddleOCR
             from pdf2image import convert_from_path
-            import tempfile
+            import numpy as np
 
-            logger.info(f"Converting PDF to images for OCR: {os.path.basename(file_path)}")
+            logger.info(f"Converting PDF to images for PaddleOCR: {os.path.basename(file_path)}")
 
-            # Convert PDF to images (300 DPI for good quality)
-            images = convert_from_path(file_path, dpi=300)
+            # Initialize PaddleOCR (supports Russian + English)
+            # lang='ru' for Russian support
+            logger.info("Initializing PaddleOCR...")
+            ocr = PaddleOCR(lang='ru')  # Russian + Latin
 
-            logger.info(f"Converted {len(images)} pages from PDF")
+            # Process PDF page by page to save memory
+            from pdf2image.pdf2image import pdfinfo_from_path
+            info = pdfinfo_from_path(file_path)
+            page_count = info["Pages"]
+            logger.info(f"PDF has {page_count} pages, processing page by page")
 
-            # OCR each page
             all_text = []
-            for i, image in enumerate(images, 1):
-                logger.info(f"OCR page {i}/{len(images)}")
-                text = pytesseract.image_to_string(image, lang='rus+eng')
-                if text.strip():
-                    all_text.append(f"## Page {i}\n\n{text}")
+
+            for page_num in range(1, page_count + 1):
+                logger.info(f"Processing page {page_num} of {page_count}...")
+
+                # Convert one page at a time
+                images = convert_from_path(
+                    file_path,
+                    dpi=200,  # Good quality for OCR
+                    first_page=page_num,
+                    last_page=page_num
+                )
+
+                if not images:
+                    continue
+
+                # Convert PIL image to numpy array for PaddleOCR
+                img_array = np.array(images[0])
+
+                # Run OCR on this page
+                result = ocr.ocr(img_array, cls=True)
+
+                # Extract text from result
+                # PaddleOCR returns: [[[box], (text, confidence)], ...]
+                page_text_lines = []
+                if result and result[0]:
+                    for line in result[0]:
+                        if line and len(line) >= 2:
+                            text = line[1][0] if isinstance(line[1], tuple) else line[1]
+                            if text and text.strip():
+                                page_text_lines.append(text.strip())
+
+                if page_text_lines:
+                    page_text = "\n".join(page_text_lines)
+                    all_text.append(f"## Page {page_num}\n\n{page_text}")
+                    logger.info(f"Page {page_num}: extracted {len(page_text)} characters")
+
+                # Clear memory
+                del images
+                del img_array
 
             if not all_text:
                 logger.warning(f"No text found in PDF {os.path.basename(file_path)}")
                 return (f"[No text detected in PDF {os.path.basename(file_path)}]", None)
 
             combined_text = "\n\n".join(all_text)
-            logger.info(f"Successfully extracted {len(combined_text)} characters from PDF")
+            logger.info(f"Successfully extracted {len(combined_text)} characters from PDF with PaddleOCR")
 
             # Return as markdown
             markdown_content = f"# {os.path.splitext(os.path.basename(file_path))[0]}\n\n{combined_text}"
             return (markdown_content, None)
 
         except ImportError as e:
-            logger.error(f"PDF to image dependencies not installed: {e}")
-            return (f"[Error: pdf2image not installed. Run: pip install pdf2image]", None)
+            logger.error(f"PaddleOCR dependencies not installed: {e}")
+            return (f"[Error: PaddleOCR not installed. Run: pip install paddleocr paddlepaddle]", None)
         except Exception as e:
-            logger.error(f"Failed to convert PDF to images: {e}")
+            logger.error(f"Failed to process PDF with PaddleOCR: {e}")
+            logger.exception("Full traceback:")
             return (f"[Error: Could not process PDF {os.path.basename(file_path)}]", None)
 
     def _ocr_image(self, file_path: str) -> tuple[str, Optional[Any]]:
-        """OCR image file using Tesseract."""
+        """OCR image file using PaddleOCR."""
         try:
-            import pytesseract
+            from paddleocr import PaddleOCR
+            import numpy as np
             from PIL import Image
 
-            logger.info(f"Performing OCR on image file: {os.path.basename(file_path)}")
+            logger.info(f"Performing PaddleOCR on image file: {os.path.basename(file_path)}")
 
-            # Open image and perform OCR with Russian and English languages
+            # Initialize PaddleOCR
+            ocr = PaddleOCR(lang='ru')
+
+            # Open and convert image to numpy array
             image = Image.open(file_path)
+            img_array = np.array(image)
 
-            # Extract text with OCR (Russian + English)
-            text = pytesseract.image_to_string(image, lang='rus+eng')
+            # Run OCR
+            result = ocr.ocr(img_array, cls=True)
+
+            # Extract text
+            text_lines = []
+            if result and result[0]:
+                for line in result[0]:
+                    if line and len(line) >= 2:
+                        text = line[1][0] if isinstance(line[1], tuple) else line[1]
+                        if text and text.strip():
+                            text_lines.append(text.strip())
+
+            text = "\n".join(text_lines)
 
             if not text.strip():
                 logger.warning(f"No text found in image {os.path.basename(file_path)}")
@@ -360,7 +384,7 @@ class DocumentIngestionPipeline:
 
         except ImportError as e:
             logger.error(f"OCR dependencies not installed: {e}")
-            return (f"[Error: OCR dependencies missing. Install: pip install pytesseract Pillow]", None)
+            return (f"[Error: PaddleOCR not installed. Install: pip install paddleocr paddlepaddle]", None)
         except Exception as e:
             logger.error(f"Failed to OCR {file_path}: {e}")
             return (f"[Error: Could not read image file {os.path.basename(file_path)}]", None)
@@ -432,10 +456,10 @@ class DocumentIngestionPipeline:
         async with self.db_pool.acquire() as conn:
             # Insert document with project support
             document_id = await conn.fetchval(
-                """INSERT INTO documents (title, source, uri, metadata, content, project_id, file_hash)
-                   VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+                """INSERT INTO documents (title, source, uri, metadata, project_id, file_hash)
+                   VALUES ($1, $2, $3, $4::jsonb, $5, $6)
                    RETURNING id""",
-                title, source, source, json.dumps(metadata), content,
+                title, source, source, json.dumps(metadata),
                 self.project_id, file_hash
             )
 

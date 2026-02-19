@@ -13,6 +13,8 @@ import type {
   Message,
   Document,
   UploadResult,
+  JobStatus,
+  IngestionJob,
   Settings,
   SettingsUpdate,
   ChatRequest,
@@ -147,6 +149,42 @@ export const documentsApi = {
         },
       }
     );
+    return response.data;
+  },
+
+  uploadAsync: async (projectId: string, files: File[]): Promise<JobStatus[]> => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    const response = await apiClient.post<JobStatus[]>(
+      `/api/projects/${projectId}/upload-async`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  },
+};
+
+// ============================================================================
+// JOBS API
+// ============================================================================
+
+export const jobsApi = {
+  getStatus: async (jobId: string): Promise<JobStatus> => {
+    const response = await apiClient.get<JobStatus>(`/api/jobs/${jobId}`);
+    return response.data;
+  },
+
+  listProjectJobs: async (projectId: string, limit = 50): Promise<IngestionJob[]> => {
+    const response = await apiClient.get<IngestionJob[]>(`/api/projects/${projectId}/jobs`, {
+      params: { limit },
+    });
     return response.data;
   },
 };

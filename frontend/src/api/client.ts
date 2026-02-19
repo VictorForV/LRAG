@@ -18,7 +18,7 @@ export const apiClient = axios.create({
   },
   // Enable CORS and credentials (cookies) for authentication
   withCredentials: true,
-  timeout: 10000, // 10 second timeout
+  timeout: 120000, // 2 minute timeout for large file OCR processing
 });
 
 // Request interceptor

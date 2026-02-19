@@ -78,12 +78,9 @@ class AgentDependencies:
                 http_client = httpx.AsyncClient(proxy=proxy_url, timeout=60.0)
 
             # Use user settings if available, otherwise fall back to global settings
-            api_key = (self.user_settings.get("llm_api_key") if self.user_settings and self.user_settings.get("llm_api_key")
-                      else self.settings.llm_api_key)
-            base_url = (self.user_settings.get("llm_base_url") if self.user_settings and self.user_settings.get("llm_base_url")
-                       else self.settings.llm_base_url)
-            model = (self.user_settings.get("llm_model") if self.user_settings and self.user_settings.get("llm_model")
-                    else self.settings.llm_model)
+            api_key = (self.user_settings.get("llm_api_key") or self.settings.llm_api_key) if self.user_settings else self.settings.llm_api_key
+            base_url = (self.user_settings.get("llm_base_url") or self.settings.llm_base_url) if self.user_settings else self.settings.llm_base_url
+            model = (self.user_settings.get("llm_model") or self.settings.llm_model) if self.user_settings else self.settings.llm_model
 
             self.openai_client = openai.AsyncOpenAI(
                 api_key=api_key,
@@ -127,12 +124,9 @@ class AgentDependencies:
                 proxy_url = f"http://{proxy_host}:{proxy_port}"
 
         # Use user settings if available, otherwise fall back to global settings
-        api_key = (self.user_settings.get("embedding_api_key") if self.user_settings and self.user_settings.get("embedding_api_key")
-                  else self.settings.embedding_api_key)
-        base_url = (self.user_settings.get("embedding_base_url") if self.user_settings and self.user_settings.get("embedding_base_url")
-                   else self.settings.embedding_base_url or self.settings.llm_base_url)
-        model = (self.user_settings.get("embedding_model") if self.user_settings and self.user_settings.get("embedding_model")
-                else self.settings.embedding_model)
+        api_key = (self.user_settings.get("embedding_api_key") or self.settings.embedding_api_key) if self.user_settings else self.settings.embedding_api_key
+        base_url = (self.user_settings.get("embedding_base_url") or self.settings.embedding_base_url or self.settings.llm_base_url) if self.user_settings else (self.settings.embedding_base_url or self.settings.llm_base_url)
+        model = (self.user_settings.get("embedding_model") or self.settings.embedding_model) if self.user_settings else self.settings.embedding_model
 
         # Direct HTTP request to OpenRouter for embeddings
         async with httpx.AsyncClient(timeout=60.0, proxy=proxy_url) as client:

@@ -47,13 +47,10 @@ def get_llm_model(
     # Use user settings if available, otherwise fall back to global settings
     llm_choice = model_choice
     if not llm_choice:
-        llm_choice = (user_settings.get("llm_model") if user_settings and user_settings.get("llm_model")
-                     else settings.llm_model)
+        llm_choice = (user_settings.get("llm_model") or settings.llm_model) if user_settings else settings.llm_model
 
-    api_key = (user_settings.get("llm_api_key") if user_settings and user_settings.get("llm_api_key")
-              else settings.llm_api_key)
-    base_url = (user_settings.get("llm_base_url") if user_settings and user_settings.get("llm_base_url")
-               else settings.llm_base_url)
+    api_key = (user_settings.get("llm_api_key") or settings.llm_api_key) if user_settings else settings.llm_api_key
+    base_url = (user_settings.get("llm_base_url") or settings.llm_base_url) if user_settings else settings.llm_base_url
 
     # Create provider based on configuration
     provider = OpenAIProvider(base_url=base_url, api_key=api_key, http_client=http_client)

@@ -83,6 +83,31 @@ export interface UploadResult {
   error?: string;
 }
 
+export interface IngestionJob {
+  id: string;
+  project_id: string;
+  user_id: string;
+  filename: string;
+  file_size: number | null;
+  status: 'pending' | 'uploading' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  chunks_created: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface JobStatus {
+  job_id: string;
+  filename: string;
+  status: 'pending' | 'uploading' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  chunks_created: number;
+  error_message?: string | null;
+}
+
 // ============================================================================
 // REQUEST TYPES
 // ============================================================================

@@ -19,8 +19,8 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
-import { projectsApi, sessionsApi, messagesApi, documentsApi, chatApi } from '../api';
-import type { Project, Session, Message, Document } from '../types';
+import { projectsApi, sessionsApi, messagesApi, documentsApi, jobsApi, chatApi } from '../api';
+import type { Project, Session, Message, Document, JobStatus } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
@@ -42,12 +42,13 @@ export default function WorkspacePage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [uploadResults, setUploadResults] = useState<any[]>([]);
+  const [uploadJobs, setUploadJobs] = useState<JobStatus[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
+  const pollingIntervalRef = useRef<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Load project
@@ -233,18 +234,20 @@ export default function WorkspacePage() {
     }
   };
 
-  // Handle file upload
+  // Handle file upload (async with background processing)
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !projectId) return;
 
     setUploadingFiles(true);
     setError(null);
-    setUploadResults([]);
 
     try {
-      const results = await documentsApi.upload(projectId, Array.from(files));
-      setUploadResults(results);
-      await loadDocuments();
+      // Use async upload - returns immediately with job IDs
+      const jobs = await documentsApi.uploadAsync(projectId, Array.from(files));
+      setUploadJobs(jobs);
+
+      // Start polling for status updates
+      startJobPolling(jobs.map(j => j.job_id));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to upload files';
       setError(message);
@@ -252,6 +255,50 @@ export default function WorkspacePage() {
       setUploadingFiles(false);
     }
   };
+
+  // Poll job statuses
+  const startJobPolling = (jobIds: string[]) => {
+    // Clear existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Poll every 2 seconds
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const updatedJobs = await Promise.all(
+          jobIds.map(id => jobsApi.getStatus(id))
+        );
+
+        setUploadJobs(updatedJobs);
+
+        // Stop polling if all jobs are complete
+        const allComplete = updatedJobs.every(
+          job => job.status === 'completed' || job.status === 'failed'
+        );
+
+        if (allComplete) {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          // Reload documents list
+          await loadDocuments();
+        }
+      } catch (err) {
+        console.error('Failed to poll job status:', err);
+      }
+    }, 2000);
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -586,13 +633,48 @@ export default function WorkspacePage() {
                       </Button>
                     </div>
 
-                    {uploadResults.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-sm">Upload Results</h4>
-                        {uploadResults.map((result, idx) => (
-                          <div key={idx} className={`flex items-center justify-between p-2 rounded ${result.success ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950'}`}>
-                            <span className="text-sm truncate">{result.filename}</span>
-                            <span className="text-xs text-muted-foreground">{result.success ? `${result.chunks} chunks` : result.error}</span>
+                    {uploadJobs.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-sm">Загруженные файлы</h4>
+                        {uploadJobs.map((job) => (
+                          <div key={job.job_id} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium truncate">{job.filename}</span>
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                job.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                                job.status === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                                job.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                                'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                              }`}>
+                                {job.status === 'pending' && 'В очереди'}
+                                {job.status === 'uploading' && 'Загрузка'}
+                                {job.status === 'processing' && 'Обработка'}
+                                {job.status === 'completed' && 'Готово'}
+                                {job.status === 'failed' && 'Ошибка'}
+                              </span>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-300 ${
+                                  job.status === 'completed' ? 'bg-green-500' :
+                                  job.status === 'failed' ? 'bg-red-500' :
+                                  'bg-blue-500'
+                                }`}
+                                style={{ width: `${job.progress}%` }}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>{job.progress}%</span>
+                              {job.status === 'completed' && (
+                                <span className="text-green-600 dark:text-green-400">✓ {job.chunks_created} chunks</span>
+                              )}
+                              {job.status === 'failed' && job.error_message && (
+                                <span className="text-red-600 dark:text-red-400">{job.error_message}</span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
